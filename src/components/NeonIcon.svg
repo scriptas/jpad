@@ -1,0 +1,36 @@
+<svg 
+  width="512" 
+  height="512" 
+  viewBox="0 0 512 512" 
+  fill="none" 
+  xmlns="http://www.w3.org/2000/svg"
+  style="overflow: visible;"
+>
+  <defs>
+    <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 1   0 0 0 0 0   0 0 0 0 1   0 0 0 1 0" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    
+    <linearGradient id="pink-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF33BB" />
+      <stop offset="100%" stop-color="#FF00FF" />
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#neon-glow)">
+    <!-- Main Body - Enlarged to fill space -->
+    <rect x="10" y="60" width="492" height="442" rx="40" fill="rgba(255, 0, 255, 0.05)" stroke="url(#pink-gradient)" stroke-width="20" />
+    
+    <!-- Tab Handle - Moved to touch top edge -->
+    <path d="M140 60 L140 10 Q140 5 150 5 L362 5 Q372 5 372 10 L372 60" stroke="url(#pink-gradient)" stroke-width="20" fill="none" />
+    
+    <!-- Eyes - Scaled up for visibility -->
+    <circle cx="180" cy="180" r="28" fill="white" />
+    <circle cx="332" cy="180" r="28" fill="white" />
+  </g>
+</svg>

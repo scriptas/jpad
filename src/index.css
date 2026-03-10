@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Dynamic Theme Variables ── */
+  --color-primary: var(--color-primary, #ffb86c);
+  --color-primary-hover: var(--color-primary-hover, #ffcc90);
+  --color-background: var(--color-background, #0d0a08);
+  --color-sidebar: var(--color-sidebar, #060504);
+  --color-surface: var(--color-surface, #1e1814);
+  --color-surface-hover: var(--color-surface-hover, #2d241e);
+  --color-text: var(--color-text, #ffffff);
+  --color-text-muted: var(--color-text-muted, #d4c8b8);
+  --color-border: var(--color-border, #332820);
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-text font-sans antialiased;
+    overflow: hidden;
+    font-feature-settings: "cv01", "cv02", "cv03";
+  }
+
+  /* Custom scrollbar — thin & warm */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-hover/60 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-hover;
+  }
+
+  /* Selection — warm gold */
+  ::selection {
+    background: rgba(212, 160, 106, 0.3);
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+}
+
+/* ============================================
+   Tiptap Editor Styles (Dynamic Theme)
+   ============================================ */
+
+.jpad-editor {
+  color: var(--color-text);
+  font-size: 16px;
+  /* Slightly larger for impact */
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+/* Headings */
+.jpad-editor h1 {
+  color: var(--color-primary);
+  /* Use primary color for main branding */
+  font-size: 2em;
+  font-weight: 800;
+  margin-top: 1.5em;
+  margin-bottom: 0.6em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  border-bottom: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  padding-bottom: 0.3em;
+}
+
+.jpad-editor h2 {
+  color: var(--color-primary);
+  font-size: 1.6em;
+  font-weight: 700;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+  opacity: 0.9;
+}
+
+.jpad-editor h3 {
+  color: var(--color-primary);
+  font-size: 1.3em;
+  font-weight: 700;
+  margin-top: 1.3em;
+  margin-bottom: 0.4em;
+  opacity: 0.8;
+}
+
+/* Paragraphs */
+.jpad-editor p {
+  margin-top: 0;
+  margin-bottom: 0.75em;
+}
+
+/* Strong/Bold */
+.jpad-editor strong {
+  color: var(--color-text);
+  font-weight: 800;
+  /* Subtle text shadow removed for light themes, or made variable */
+}
+
+/* Emphasis/Italic */
+.jpad-editor em {
+  color: var(--color-text-muted);
+  font-style: italic;
+  filter: brightness(1.1);
+}
+
+/* Links */
+.jpad-editor a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  transition: text-decoration-color 200ms;
+}
+
+.jpad-editor a:hover {
+  text-decoration-color: var(--color-primary);
+}
+
+/* Inline Code */
+.jpad-editor code {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  border: 1px solid var(--color-border);
+}
+
+/* Code Blocks */
+.jpad-editor pre {
+  background: var(--color-sidebar);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1em 1.25em;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.jpad-editor pre code {
+  color: var(--color-text);
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+
+/* Blockquotes */
+.jpad-editor blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  border-radius: 0 6px 6px 0;
+  padding: 0.5em 1em;
+  font-style: italic;
+}
+
+.jpad-editor blockquote p {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.jpad-editor ul,
+.jpad-editor ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.jpad-editor ul {
+  list-style-type: disc;
+}
+
+.jpad-editor ol {
+  list-style-type: decimal;
+}
+
+.jpad-editor li {
+  margin-bottom: 0.3em;
+}
+
+.jpad-editor li::marker {
+  color: var(--color-primary);
+}
+
+/* Horizontal Rule */
+.jpad-editor hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+
+/* Images */
+.jpad-editor img {
+  border-radius: 8px;
+  max-width: 100%;
+  display: block;
+}
+
+/* Tiptap image node wrapper — prevent white background frame */
+.jpad-editor [data-type="image"],
+.jpad-editor .node-image,
+.jpad-editor .image-node-wrapper,
+.jpad-editor div:has(> img) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 1.5em 0 !important;
+  line-height: 0;
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+/* Selected image outline */
+.jpad-editor img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Highlight / Mark */
+.jpad-editor mark {
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0.05em 0.15em;
+}
+
+/* Placeholder */
+.jpad-editor.is-editor-empty:first-child::before {
+  color: var(--color-text-muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ============================================
+   Color Picker Popover
+   ============================================ */
+
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 6px;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.color-swatch.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Micro-Animations
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-in {
+  animation: fadeIn 150ms ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideInLeft 200ms ease-out forwards;
+}
