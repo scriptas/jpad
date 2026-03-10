@@ -1,6 +1,7 @@
 [package]
 name = "tauri-appjpad"
 version = "1.0.0"
+license = "MIT"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
