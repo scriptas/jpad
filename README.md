@@ -16,7 +16,7 @@ With apple notes being OS locked;
 
 Made JPad. Light. Colorful. Simple, yet supports ALL the notedown features + clipboards.
 
-This is a v1. v0.1 one could say. With v2, I plan to add:
+This is a v1.0 version. With v2, I plan to add:
 
 - Cloud sync with locally hosted or paid remote storage;
 - Code snippet copy paste tool for simple development workflow management;
