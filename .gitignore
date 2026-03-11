@@ -30,7 +30,5 @@ db.json
 src-tauri/target
 src-tauri/gen
 
-# User Data & CI
+# User Data
 notes/
-.github/
-.github/workflows/
