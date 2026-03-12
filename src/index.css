@@ -113,9 +113,8 @@
 
 /* Emphasis/Italic */
 .jpad-editor em {
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font-style: italic;
-  filter: brightness(1.1);
 }
 
 /* Links */
