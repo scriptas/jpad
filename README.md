@@ -14,7 +14,7 @@ With notepad, notepad++, MS word being one file focused;
 
 With apple notes being OS locked;
 
-Made JPad. Free. Light. Colorful. Simple, yet supports ALL the notedown features + clipboards.
+Made JPad, note taking software. Free. Light. Colorful. Simple, yet supports ALL the notedown features + clipboards.
 
 This is a v1.0 version. With v2, I plan to add:
 
@@ -28,12 +28,6 @@ This is a v1.0 version. With v2, I plan to add:
 <img width="1095" height="753" alt="image" src="https://github.com/user-attachments/assets/b5e7ee29-1db0-4537-9210-0e53795b6a0b" />
 <img width="791" height="642" alt="image" src="https://github.com/user-attachments/assets/a0b5afbe-4feb-4e4f-adf4-f59c9f50e933" />
 <img width="1102" height="754" alt="image" src="https://github.com/user-attachments/assets/41b8b9f5-5616-41f6-9ffe-f7270188daa7" />
-
-
-
-## Overview
-
-JPad is a high-performance, desktop-native note-taking application designed for speed, flexibility, and a premium visual experience. Built with a focus on modern web technologies and the efficiency of Rust, it provides a seamless writing environment with cloud synchronization and extensive customization.
 
 ## Tech Stack
 
