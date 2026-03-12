@@ -253,7 +253,6 @@ pub fn run() {
             {
                 use cocoa::appkit::{NSWindow, NSWindowStyleMask};
                 use cocoa::base::id;
-                use cocoa::foundation::NSRect;
                 
                 unsafe {
                     let ns_window = window.ns_window().unwrap() as id;

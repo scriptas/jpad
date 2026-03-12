@@ -68,7 +68,7 @@ export default function App() {
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizingRef.current) return;
       const newWidth = e.clientX;
-      if (newWidth > 180 && newWidth < 450) {
+      if (newWidth > 210 && newWidth < 450) {
         setSidebarWidth(newWidth);
       }
     };
