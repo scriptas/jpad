@@ -15,12 +15,10 @@
         "title": "JPad",
         "width": 1100,
         "height": 750,
-        "decorations": true,
+        "decorations": false,
         "transparent": false,
         "resizable": true,
-        "dragDropEnabled": false,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "dragDropEnabled": false
       }
     ],
     "security": {
