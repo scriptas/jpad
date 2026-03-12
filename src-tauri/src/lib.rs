@@ -241,17 +241,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .setup(|app| {
-            // Get the main window
-            let window = app.get_webview_window("main").unwrap();
-            
-            // Enable native decorations only on macOS
-            #[cfg(target_os = "macos")]
-            {
-                use tauri::TitleBarStyle;
-                window.set_decorations(true)?;
-                window.set_title_bar_style(TitleBarStyle::Overlay)?;
-            }
-            
             // Setup tray icon with menu
             let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;
