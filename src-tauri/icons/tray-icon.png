@@ -1,0 +1,7 @@
+This is a placeholder - you'll need to create an actual PNG icon with:
+- Transparent background
+- Dark/black icon design (for light mode menu bar)
+- Size: 22x22 pixels (standard macOS tray icon size)
+- Or use a template icon that works in both light and dark modes
+
+For now, I'll set up the code to use your existing icon, but you should create a proper tray icon.

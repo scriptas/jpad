@@ -2,6 +2,7 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use tauri::Manager;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileNode {
@@ -238,6 +239,36 @@ fn read_file_base64(path: String) -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_os::init())
+        .setup(|app| {
+            // Setup tray icon with menu
+            let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;
+            let menu = tauri::menu::MenuBuilder::new(app)
+                .item(&show)
+                .separator()
+                .item(&quit)
+                .build()?;
+            
+            let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_files,
             read_file,
