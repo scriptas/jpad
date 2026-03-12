@@ -4,6 +4,10 @@ use std::fs;
 use std::path::Path;
 use tauri::Manager;
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileNode {
     pub id: String,
@@ -241,6 +245,36 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .setup(|app| {
+            // Get the main window
+            let window = app.get_webview_window("main").unwrap();
+            
+            // Apply macOS-specific window styling for rounded corners
+            #[cfg(target_os = "macos")]
+            {
+                use cocoa::appkit::{NSWindow, NSWindowStyleMask};
+                use cocoa::base::id;
+                use cocoa::foundation::NSRect;
+                
+                unsafe {
+                    let ns_window = window.ns_window().unwrap() as id;
+                    
+                    // Enable shadow
+                    ns_window.setHasShadow_(cocoa::base::YES);
+                    
+                    // Get the content view and set corner radius on its layer
+                    let content_view: id = ns_window.contentView();
+                    let _: () = msg_send![content_view, setWantsLayer: cocoa::base::YES];
+                    let layer: id = msg_send![content_view, layer];
+                    let _: () = msg_send![layer, setCornerRadius: 10.0_f64];
+                    let _: () = msg_send![layer, setMasksToBounds: cocoa::base::YES];
+                    
+                    // Enable full size content view
+                    let mut style_mask = ns_window.styleMask();
+                    style_mask |= NSWindowStyleMask::NSFullSizeContentViewWindowMask;
+                    ns_window.setStyleMask_(style_mask);
+                }
+            }
+            
             // Setup tray icon with menu
             let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;

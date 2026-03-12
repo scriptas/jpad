@@ -16,6 +16,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useThemeStore, initializeTheme } from "./store/useThemeStore";
 import Settings from "./components/Settings";
 import NeonIcon from "./components/NeonIcon";
+import { platform } from "@tauri-apps/plugin-os";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,12 +31,14 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isResizing, setIsResizing] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMacOS, setIsMacOS] = useState(false);
 
   const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
   useEffect(() => {
     refreshFiles();
     initializeTheme();
+    setIsMacOS(platform() === "macos");
   }, []);
 
   // Listen for maximize/unmaximize
@@ -174,54 +177,113 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background text-text overflow-hidden">
+    <div className={cn(
+      "flex flex-col h-screen w-full bg-background text-text overflow-hidden",
+      isMacOS && "rounded-[10px]"
+    )}>
       {/* Custom Title Bar */}
       <div
         ref={titleBarRef}
-        className="h-10 flex items-center bg-sidebar border-b border-border flex-shrink-0 select-none cursor-default"
+        className={cn(
+          "h-10 flex items-center bg-sidebar border-b border-border flex-shrink-0 select-none cursor-default",
+          isMacOS && "rounded-t-[10px]"
+        )}
       >
-        {/* Left: App Branding */}
-        <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
-          <NeonIcon size={32} />
-          <span className="text-[11px] font-bold tracking-wide text-text uppercase">
-            JPad
-          </span>
-        </div>
+        {isMacOS ? (
+          // macOS layout: traffic light buttons (left) | icon + text | filename (center) | empty (right)
+          <>
+            {/* Left: macOS-style traffic light buttons */}
+            <div className="flex items-center gap-2 pl-3 pr-3 h-full flex-shrink-0">
+              <button
+                onClick={() => appWindow.close()}
+                className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 transition-colors flex items-center justify-center group"
+                title="Close"
+              >
+                <X size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
+              </button>
+              <button
+                onClick={() => appWindow.minimize()}
+                className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#febc2e]/80 transition-colors flex items-center justify-center group"
+                title="Minimize"
+              >
+                <Minus size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
+              </button>
+              <button
+                onClick={() => appWindow.toggleMaximize()}
+                className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#28c840]/80 transition-colors flex items-center justify-center group"
+                title="Maximize"
+              >
+                <Maximize2 size={6} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
+              </button>
+            </div>
 
-        {/* Center: File Name (Soft Centered Text) */}
-        <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
-          {activeFile && (
-            <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
-              {activeFile.name}
-            </span>
-          )}
-        </div>
+            {/* Left-Center: App Branding */}
+            <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
+              <NeonIcon size={32} />
+              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+                JPad
+              </span>
+            </div>
 
-        {/* Right: Window Controls */}
-        <div className="flex items-center h-full flex-shrink-0">
-          <button
-            onClick={() => appWindow.minimize()}
-            className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
-          >
-            <Minus size={14} className="opacity-90" />
-          </button>
-          <button
-            onClick={() => appWindow.toggleMaximize()}
-            className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
-          >
-            {isMaximized ? (
-              <Square size={10} className="opacity-90" />
-            ) : (
-              <Maximize2 size={12} className="opacity-90" />
-            )}
-          </button>
-          <button
-            onClick={() => appWindow.close()}
-            className="h-full px-3.5 hover:bg-red-500/80 hover:text-white transition-colors flex items-center"
-          >
-            <X size={14} className="opacity-90" />
-          </button>
-        </div>
+            {/* Center: File Name */}
+            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
+              {activeFile && (
+                <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
+                  {activeFile.name}
+                </span>
+              )}
+            </div>
+
+            {/* Right: Empty space for symmetry */}
+            <div className="w-[140px] flex-shrink-0" />
+          </>
+        ) : (
+          // Windows/Linux layout: icon + text (left) | filename (center) | window controls (right)
+          <>
+            {/* Left: App Branding */}
+            <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
+              <NeonIcon size={32} />
+              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+                JPad
+              </span>
+            </div>
+
+            {/* Center: File Name */}
+            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
+              {activeFile && (
+                <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
+                  {activeFile.name}
+                </span>
+              )}
+            </div>
+
+            {/* Right: Window Controls */}
+            <div className="flex items-center h-full flex-shrink-0">
+              <button
+                onClick={() => appWindow.minimize()}
+                className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
+              >
+                <Minus size={14} className="opacity-90" />
+              </button>
+              <button
+                onClick={() => appWindow.toggleMaximize()}
+                className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
+              >
+                {isMaximized ? (
+                  <Square size={10} className="opacity-90" />
+                ) : (
+                  <Maximize2 size={12} className="opacity-90" />
+                )}
+              </button>
+              <button
+                onClick={() => appWindow.close()}
+                className="h-full px-3.5 hover:bg-red-500/80 hover:text-white transition-colors flex items-center"
+              >
+                <X size={14} className="opacity-90" />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Main Content Row */}
