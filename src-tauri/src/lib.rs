@@ -1,3 +1,6 @@
+// Suppress warnings from cocoa crate's internal macros
+#![allow(unexpected_cfgs)]
+
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fs;
