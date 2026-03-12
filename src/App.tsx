@@ -292,7 +292,7 @@ export default function App() {
         {!sidebarVisible && (
           <button
             onClick={toggleSidebar}
-            className="fixed top-12 left-4 z-50 p-2.5 bg-primary/90 text-white rounded-lg shadow-lg shadow-primary/20 hover:bg-primary hover:scale-105 active:scale-95 transition-all backdrop-blur-sm"
+            className="fixed bottom-12 left-4 z-50 p-2.5 bg-primary/90 text-white rounded-lg shadow-lg shadow-primary/20 hover:bg-primary hover:scale-105 active:scale-95 transition-all backdrop-blur-sm"
             title="Show Sidebar"
           >
             <PanelLeftOpen size={18} />
