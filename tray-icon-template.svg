@@ -1,0 +1,9 @@
+<svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple notepad/document icon for macOS tray -->
+  <rect x="5" y="3" width="12" height="16" rx="1" stroke="black" stroke-width="1.5" fill="none"/>
+  <!-- Two dots for eyes/decoration -->
+  <circle cx="9" cy="8" r="1" fill="black"/>
+  <circle cx="13" cy="8" r="1" fill="black"/>
+  <!-- Smile/line -->
+  <path d="M 8 13 Q 11 15 14 13" stroke="black" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+</svg>
