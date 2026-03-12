@@ -419,7 +419,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[10px] text-text-muted font-mono opacity-50">
-                    v0.1.0
+                    v1.1.0
                 </div>
             </div>
 
