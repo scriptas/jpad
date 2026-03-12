@@ -212,7 +212,10 @@
 .jpad-editor img {
   border-radius: 8px;
   max-width: 100%;
+  min-width: min(300px, 100%);
+  height: auto;
   display: block;
+  object-fit: contain;
 }
 
 /* Tiptap image node wrapper — prevent white background frame */

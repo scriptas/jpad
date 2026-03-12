@@ -201,6 +201,10 @@ export default function Editor() {
                 Image.configure({
                     inline: false,
                     allowBase64: true,
+                    HTMLAttributes: {
+                        class: "jpad-image",
+                        style: "max-width: 100%; min-width: min(300px, 100%); height: auto;",
+                    },
                 }),
                 Youtube.configure({
                     HTMLAttributes: {
