@@ -20,10 +20,13 @@ import {
 } from "../store/useThemeStore";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+const appWindow = getCurrentWindow();
 
 /** Color label mapping for the editor */
 const COLOR_LABELS: { key: keyof ThemeColors; label: string; description: string }[] = [
@@ -255,6 +258,39 @@ export default function Settings() {
     const [editName, setEditName] = useState("");
     const [isCreatingNew, setIsCreatingNew] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
+    const backdropRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    // Enable dragging on backdrop and header
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            // Don't drag if clicking on a button or interactive element
+            if ((e.target as HTMLElement).closest("button, input, a")) return;
+            // Primary (left) button only
+            if (e.buttons !== 1) return;
+            // Start dragging
+            appWindow.startDragging();
+        };
+
+        const backdrop = backdropRef.current;
+        const header = headerRef.current;
+
+        if (backdrop) {
+            backdrop.addEventListener("mousedown", handleMouseDown);
+        }
+        if (header) {
+            header.addEventListener("mousedown", handleMouseDown);
+        }
+
+        return () => {
+            if (backdrop) {
+                backdrop.removeEventListener("mousedown", handleMouseDown);
+            }
+            if (header) {
+                header.removeEventListener("mousedown", handleMouseDown);
+            }
+        };
+    }, []);
 
     // Preview changes live
     useEffect(() => {
@@ -369,7 +405,8 @@ export default function Settings() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                ref={backdropRef}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-move"
                 onClick={handleClose}
             />
 
@@ -379,7 +416,10 @@ export default function Settings() {
                 className="relative z-10 w-[680px] max-h-[85vh] bg-sidebar border border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface/30">
+                <div 
+                    ref={headerRef}
+                    className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface/30 cursor-move"
+                >
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
                             <Palette size={16} className="text-primary" />
