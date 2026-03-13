@@ -2,23 +2,37 @@ import { useStore, findFileNode } from "../store/useStore";
 import { Cloud, FileText, Check, Loader2 } from "lucide-react";
 import { useMemo } from "react";
 
+function calculateStats(htmlContent: string) {
+    if (!htmlContent) {
+        return { wordCount: 0, charCount: 0, lineCount: 0 };
+    }
+
+    // Strip HTML to get plain text
+    const text = htmlContent
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&[a-z]+;/gi, " ") // Remove HTML entities
+        .replace(/\s+/g, " ")
+        .trim();
+    
+    const wordCount = text ? text.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const charCount = text.length;
+    
+    // Count block-level elements for line count
+    const lineCount = Math.max(1, (htmlContent.match(/<\/p>|<\/h[1-6]>|<\/li>|<br\s*\/?>/gi) || []).length);
+    
+    return { wordCount, charCount, lineCount };
+}
+
 export default function StatusBar() {
-    const { activeFileId, files, editorContent, isSaving } = useStore();
+    const { activeFileId, files, editorContent, selectedContent, isSaving } = useStore();
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
-    const stats = useMemo(() => {
-        // Strip HTML to get plain text
-        const text = editorContent
-            .replace(/<[^>]*>/g, " ")
-            .replace(/&nbsp;/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-        const wordCount = text ? text.split(/\s+/).length : 0;
-        const charCount = text.length;
-        const lineCount = editorContent ? (editorContent.match(/<\/p>|<\/h[1-6]>|<\/li>|<br\s*\/?>/gi) || []).length + 1 : 0;
-        return { wordCount, charCount, lineCount };
-    }, [editorContent]);
+    const totalStats = useMemo(() => calculateStats(editorContent), [editorContent]);
+    const selectedStats = useMemo(() => calculateStats(selectedContent), [selectedContent]);
+    
+    const hasSelection = selectedContent.length > 0;
 
     const getFileType = (name?: string) => {
         if (!name) return "—";
@@ -67,15 +81,16 @@ export default function StatusBar() {
             {activeFile && (
                 <div className="flex items-center gap-3">
                     <span className="opacity-80">
-                        Ln {stats.lineCount}, Words {stats.wordCount}
+                        {hasSelection ? (
+                            <>
+                                Ln {selectedStats.lineCount}/{totalStats.lineCount}, Words {selectedStats.wordCount}/{totalStats.wordCount}
+                            </>
+                        ) : (
+                            <>
+                                Ln {totalStats.lineCount}, Words {totalStats.wordCount}
+                            </>
+                        )}
                     </span>
-                    <div className="w-[1px] h-2.5 bg-border" />
-                    <span className="opacity-80">UTF-8</span>
-                    <div className="w-[1px] h-2.5 bg-border" />
-                    <div className="flex items-center gap-1.5 opacity-90">
-                        <FileText size={11} />
-                        <span>{getFileType(activeFile.name)}</span>
-                    </div>
                 </div>
             )}
         </footer>

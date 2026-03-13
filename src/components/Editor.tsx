@@ -178,7 +178,7 @@ function readFileAsDataURL(file: File): Promise<string> {
 }
 
 export default function Editor() {
-    const { activeFileId, files, saveActiveFile, loadFileContent, isSaving } = useStore();
+    const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setEditorContent, setSelectedContent } = useStore();
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isLoadingRef = useRef(false);
     const saveRef = useRef(saveActiveFile);
@@ -335,10 +335,29 @@ export default function Editor() {
             },
             onUpdate: ({ editor }) => {
                 if (isLoadingRef.current) return;
+                const content = editor.getHTML();
+                setEditorContent(content); // Update store immediately for stats
                 if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                 saveTimeoutRef.current = setTimeout(() => {
-                    saveRef.current(editor.getHTML());
+                    saveRef.current(content);
                 }, 600);
+            },
+            onSelectionUpdate: ({ editor }) => {
+                // Update selected content when selection changes
+                if (!isLoadingRef.current) {
+                    const { from, to, empty } = editor.state.selection;
+                    if (empty) {
+                        setSelectedContent("");
+                    } else {
+                        // Get HTML of selected content
+                        const slice = editor.state.doc.slice(from, to);
+                        const serializer = DOMSerializer.fromSchema(editor.state.schema);
+                        const fragment = serializer.serializeFragment(slice.content);
+                        const div = document.createElement("div");
+                        div.appendChild(fragment);
+                        setSelectedContent(div.innerHTML);
+                    }
+                }
             },
         },
         []

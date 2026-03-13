@@ -15,6 +15,7 @@ interface AppState {
     activeFileId: string | null;
     sidebarVisible: boolean;
     editorContent: string;
+    selectedContent: string;
     isSaving: boolean;
     notesRoot: string;
 
@@ -30,6 +31,7 @@ interface AppState {
     renamePath: (oldPath: string, newPath: string) => Promise<void>;
     movePath: (oldPath: string, newPath: string) => Promise<void>;
     setEditorContent: (content: string) => void;
+    setSelectedContent: (content: string) => void;
 }
 
 /** Helper to find a file node recursively. */
@@ -49,6 +51,7 @@ export const useStore = create<AppState>((set, get) => ({
     activeFileId: null,
     sidebarVisible: true,
     editorContent: "",
+    selectedContent: "",
     isSaving: false,
     notesRoot: "",
 
@@ -168,4 +171,6 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     setEditorContent: (content) => set({ editorContent: content }),
+    
+    setSelectedContent: (content) => set({ selectedContent: content }),
 }));
