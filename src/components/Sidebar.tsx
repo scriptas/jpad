@@ -18,7 +18,6 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { useStore, FileNode, findFileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
-import { useSettingsStore } from "../store/useSettingsStore";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -81,10 +80,9 @@ export default function Sidebar() {
     }, [showFolderDialog]);
 
     const handleCreateFile = async (parentPath?: string) => {
-        const { fileNamePrefix } = useSettingsStore.getState();
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
+        const defaultName = `Untitled-${timestamp}.jt`;
         const basePath = parentPath || notesRoot;
 
         await createFile(`${basePath}/${defaultName}`);
@@ -136,8 +134,7 @@ export default function Sidebar() {
         }
     };
 
-    const handleDeleteSelected = async () => {
-        console.log('handleDeleteSelected called, selectedFiles.size:', selectedFiles.size);
+    const handleDeleteSelected = useCallback(async () => {
         if (selectedFiles.size === 0) return;
         
         const fileNames = Array.from(selectedFiles).map(id => {
@@ -145,32 +142,37 @@ export default function Sidebar() {
             return node?.name || id;
         });
         
-        console.log('Files to delete:', fileNames);
-        
         const confirmMsg = selectedFiles.size === 1 
             ? `Delete "${fileNames[0]}"?`
             : `Delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
             
-        console.log('Showing confirmation dialog');
         if (window.confirm(confirmMsg)) {
-            console.log('User confirmed deletion, deleting files...');
             // Delete all selected files
             try {
                 for (const fileId of selectedFiles) {
-                    console.log('Deleting file:', fileId);
                     await deletePath(fileId);
-                    console.log('Successfully deleted:', fileId);
                 }
                 // Clear selection after deletion
                 setSelectedFiles(new Set());
                 setLastSelectedId(null);
-                console.log('All files deleted and selection cleared');
             } catch (error) {
                 console.error('Error during deletion:', error);
             }
-        } else {
-            console.log('User cancelled deletion');
         }
+    }, [selectedFiles, files, deletePath, setSelectedFiles, setLastSelectedId]);
+
+    const getAllFileIds = (nodes: FileNode[]): string[] => {
+        const ids: string[] = [];
+        const traverse = (nodeList: FileNode[]) => {
+            for (const node of nodeList) {
+                ids.push(node.id);
+                if (node.children) {
+                    traverse(node.children);
+                }
+            }
+        };
+        traverse(nodes);
+        return ids;
     };
 
     const handleFileClick = (node: FileNode, event: React.MouseEvent) => {
@@ -210,20 +212,6 @@ export default function Sidebar() {
         }
     };
 
-    const getAllFileIds = (nodes: FileNode[]): string[] => {
-        const ids: string[] = [];
-        const traverse = (nodeList: FileNode[]) => {
-            for (const node of nodeList) {
-                ids.push(node.id);
-                if (node.children) {
-                    traverse(node.children);
-                }
-            }
-        };
-        traverse(nodes);
-        return ids;
-    };
-
     const handleRename = async (node: FileNode) => {
         const newName = window.prompt("Enter new name", node.name);
         if (newName && newName !== node.name) {
@@ -234,22 +222,20 @@ export default function Sidebar() {
         }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-        console.log('Key pressed:', event.key, 'selectedFiles.size:', selectedFiles.size);
+    const handleKeyDown = useCallback((event: KeyboardEvent) => {
         if (event.key === 'Delete' || event.key === 'Backspace') {
             if (selectedFiles.size > 0) {
-                console.log('Delete key pressed with selected files, calling handleDeleteSelected');
                 event.preventDefault();
                 handleDeleteSelected();
             }
         }
-    };
+    }, [selectedFiles, handleDeleteSelected]);
 
     // Add keyboard event listener for delete key
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [selectedFiles]);
+    }, [handleKeyDown]);
 
     // ── Drag & Drop helpers ──
 
@@ -485,7 +471,13 @@ export default function Sidebar() {
     const activeThemeIdStore = useThemeStore((state) => state.activeThemeId);
 
     return (
-        <aside className="w-full h-full flex flex-col border-r border-border bg-sidebar">
+        <aside 
+            className="w-full h-full flex flex-col border-r border-border bg-sidebar" 
+            tabIndex={0}
+            onFocus={() => {
+                // Ensure sidebar can receive keyboard events
+            }}
+        >
             {/* Sidebar Header */}
             <div className="flex items-center px-3 py-2.5 border-b border-border bg-sidebar/80 backdrop-blur-sm">
                 <button
@@ -555,15 +547,23 @@ export default function Sidebar() {
                 {selectedFiles.size > 0 && (
                     <div className="mx-3 mb-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary flex items-center justify-between">
                         <span>{selectedFiles.size} item{selectedFiles.size > 1 ? 's' : ''} selected</span>
-                        <button
-                            onClick={() => {
-                                setSelectedFiles(new Set());
-                                setLastSelectedId(null);
-                            }}
-                            className="text-primary/70 hover:text-primary text-xs underline"
-                        >
-                            Clear
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleDeleteSelected}
+                                className="text-red-400 hover:text-red-300 text-xs underline"
+                            >
+                                Delete
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setSelectedFiles(new Set());
+                                    setLastSelectedId(null);
+                                }}
+                                className="text-primary/70 hover:text-primary text-xs underline"
+                            >
+                                Clear
+                            </button>
+                        </div>
                     </div>
                 )}
                 {displayedFiles.length > 0 ? (
