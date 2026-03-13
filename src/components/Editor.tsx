@@ -178,7 +178,7 @@ function readFileAsDataURL(file: File): Promise<string> {
 }
 
 export default function Editor() {
-    const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setSelectedText } = useStore();
+    const { activeFileId, files, saveActiveFile, loadFileContent, isSaving } = useStore();
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isLoadingRef = useRef(false);
     const saveRef = useRef(saveActiveFile);
@@ -343,63 +343,6 @@ export default function Editor() {
         },
         []
     );
-
-    // Handle selection changes with faster updates
-    useEffect(() => {
-        if (!editor) return;
-
-        let selectionTimeout: ReturnType<typeof setTimeout> | null = null;
-
-        const handleSelectionChange = () => {
-            if (selectionTimeout) clearTimeout(selectionTimeout);
-            
-            selectionTimeout = setTimeout(() => {
-                if (!editor || editor.isDestroyed) return;
-                
-                const { from, to, empty } = editor.state.selection;
-                if (empty) {
-                    setSelectedText("");
-                } else {
-                    const selectedText = editor.state.doc.textBetween(from, to, "\n", "\n");
-                    setSelectedText(selectedText);
-                }
-            }, 100); // Much faster update - 100ms instead of relying on onSelectionUpdate
-        };
-
-        // Wait for the editor view to be available before adding event listeners
-        const addEventListeners = () => {
-            const view = editor.view;
-            if (view && view.dom) {
-                view.dom.addEventListener('mouseup', handleSelectionChange);
-                view.dom.addEventListener('keyup', handleSelectionChange);
-                view.dom.addEventListener('selectstart', handleSelectionChange);
-                return true;
-            }
-            return false;
-        };
-
-        // Try to add listeners immediately, if not available, wait a bit
-        if (!addEventListeners()) {
-            const retryTimeout = setTimeout(() => {
-                addEventListeners();
-            }, 100);
-            
-            return () => {
-                clearTimeout(retryTimeout);
-                if (selectionTimeout) clearTimeout(selectionTimeout);
-            };
-        }
-
-        return () => {
-            if (selectionTimeout) clearTimeout(selectionTimeout);
-            const view = editor.view;
-            if (view && view.dom) {
-                view.dom.removeEventListener('mouseup', handleSelectionChange);
-                view.dom.removeEventListener('keyup', handleSelectionChange);
-                view.dom.removeEventListener('selectstart', handleSelectionChange);
-            }
-        };
-    }, [editor, setSelectedText]);
 
     // Load file content when active file changes
     useEffect(() => {
