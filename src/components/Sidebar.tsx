@@ -126,53 +126,29 @@ export default function Sidebar() {
     };
 
     const handleDelete = async (node: FileNode) => {
-        // Check if we're on macOS
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-        
-        if (isMac) {
-            // On macOS, open Terminal with rm command
-            try {
-                await invoke("delete_with_terminal", { paths: [node.id] });
-            } catch (error) {
-                console.error('Error opening Terminal:', error);
-            }
-        } else {
-            // On Windows/Linux, delete directly
+        // Try direct deletion on all platforms
+        try {
             await deletePath(node.id);
+        } catch (error) {
+            console.error('Error during deletion:', error);
         }
     };
 
     const handleDeleteSelected = useCallback(async () => {
         if (selectedFiles.size === 0) return;
         
-        // Check if we're on macOS
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-        
-        if (isMac) {
-            // On macOS, open Terminal with rm command
-            try {
-                const filePaths = Array.from(selectedFiles);
-                await invoke("delete_with_terminal", { paths: filePaths });
-                // Clear selection after opening Terminal
-                setSelectedFiles(new Set());
-                setLastSelectedId(null);
-            } catch (error) {
-                console.error('Error opening Terminal:', error);
+        // Try direct deletion on all platforms
+        try {
+            for (const fileId of selectedFiles) {
+                await deletePath(fileId);
             }
-        } else {
-            // On Windows/Linux, delete directly
-            try {
-                for (const fileId of selectedFiles) {
-                    await deletePath(fileId);
-                }
-                // Clear selection after deletion
-                setSelectedFiles(new Set());
-                setLastSelectedId(null);
-            } catch (error) {
-                console.error('Error during deletion:', error);
-            }
+            // Clear selection after deletion
+            setSelectedFiles(new Set());
+            setLastSelectedId(null);
+        } catch (error) {
+            console.error('Error during deletion:', error);
         }
-    }, [selectedFiles, files, deletePath]);
+    }, [selectedFiles, deletePath]);
 
     const getAllFileIds = (nodes: FileNode[]): string[] => {
         const ids: string[] = [];
