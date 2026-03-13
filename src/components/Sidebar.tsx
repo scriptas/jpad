@@ -126,40 +126,89 @@ export default function Sidebar() {
     };
 
     const handleDelete = async (node: FileNode) => {
-        const confirmMsg = node.type === "folder"
-            ? `Delete folder "${node.name}" and all its contents?`
-            : `Delete "${node.name}"?`;
-        if (window.confirm(confirmMsg)) {
-            await deletePath(node.id);
+        // Check if we're on macOS
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        
+        if (isMac) {
+            // On macOS, open Finder so user can delete natively
+            const confirmMsg = node.type === "folder"
+                ? `Open Finder to delete folder "${node.name}"?`
+                : `Open Finder to delete "${node.name}"?`;
+            if (window.confirm(confirmMsg)) {
+                try {
+                    await invoke("reveal_path", { path: node.id });
+                } catch (error) {
+                    console.error('Error opening Finder:', error);
+                    alert(`Failed to open Finder: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        } else {
+            // On Windows/Linux, delete directly
+            const confirmMsg = node.type === "folder"
+                ? `Delete folder "${node.name}" and all its contents?`
+                : `Delete "${node.name}"?`;
+            if (window.confirm(confirmMsg)) {
+                await deletePath(node.id);
+            }
         }
     };
 
     const handleDeleteSelected = useCallback(async () => {
         if (selectedFiles.size === 0) return;
         
-        const fileNames = Array.from(selectedFiles).map(id => {
-            const node = findFileNode(files, id);
-            return node?.name || id;
-        });
+        // Check if we're on macOS
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         
-        const confirmMsg = selectedFiles.size === 1 
-            ? `Delete "${fileNames[0]}"?`
-            : `Delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
+        if (isMac) {
+            // On macOS, open Finder for each selected file so user can delete natively
+            const fileNames = Array.from(selectedFiles).map(id => {
+                const node = findFileNode(files, id);
+                return node?.name || id;
+            });
             
-        if (window.confirm(confirmMsg)) {
-            // Delete all selected files
-            try {
-                for (const fileId of selectedFiles) {
-                    await deletePath(fileId);
+            const confirmMsg = selectedFiles.size === 1 
+                ? `Open Finder to delete "${fileNames[0]}"?`
+                : `Open Finder to delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
+            
+            if (window.confirm(confirmMsg)) {
+                try {
+                    for (const fileId of selectedFiles) {
+                        await invoke("reveal_path", { path: fileId });
+                    }
+                    // Clear selection after opening Finder
+                    setSelectedFiles(new Set());
+                    setLastSelectedId(null);
+                } catch (error) {
+                    console.error('Error opening Finder:', error);
+                    alert(`Failed to open Finder: ${error instanceof Error ? error.message : String(error)}`);
                 }
-                // Clear selection after deletion
-                setSelectedFiles(new Set());
-                setLastSelectedId(null);
-            } catch (error) {
-                console.error('Error during deletion:', error);
+            }
+        } else {
+            // On Windows/Linux, delete directly
+            const fileNames = Array.from(selectedFiles).map(id => {
+                const node = findFileNode(files, id);
+                return node?.name || id;
+            });
+            
+            const confirmMsg = selectedFiles.size === 1 
+                ? `Delete "${fileNames[0]}"?`
+                : `Delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
+                
+            if (window.confirm(confirmMsg)) {
+                try {
+                    for (const fileId of selectedFiles) {
+                        await deletePath(fileId);
+                    }
+                    // Clear selection after deletion
+                    setSelectedFiles(new Set());
+                    setLastSelectedId(null);
+                } catch (error) {
+                    console.error('Error during deletion:', error);
+                    alert(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
         }
-    }, [selectedFiles, files, deletePath, setSelectedFiles, setLastSelectedId]);
+    }, [selectedFiles, files, deletePath]);
 
     const getAllFileIds = (nodes: FileNode[]): string[] => {
         const ids: string[] = [];
