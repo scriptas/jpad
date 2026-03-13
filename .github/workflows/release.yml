@@ -50,7 +50,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__ # the action will replace this with the version from tauri.conf.json
-          releaseName: "JPad v__VERSION__"
+          releaseName: "vytautas"
           releaseBody: "See the assets below to download JPad."
           releaseDraft: true
           prerelease: false
