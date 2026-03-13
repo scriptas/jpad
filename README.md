@@ -47,6 +47,7 @@ This is a v1.0 version. With v2, I plan to add:
 - **Desktop First**: A native feel with low resource overhead, global shortcuts, and system tray integration.
 - **Advanced Media**: Seamless drag-and-drop and clipboard support for binary images.
 - **File Management**: Built-in explorer for organizing notes and assets.
+- **Full-Text Search**: Search across both filenames and file content with live results (Ctrl+F / Cmd+F).
 
 ---
 

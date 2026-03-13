@@ -299,6 +299,109 @@ fn read_file_base64(path: String) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", mime, b64))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SearchResult {
+    pub path: String,
+    pub name: String,
+    pub match_type: String, // "filename" or "content"
+    pub preview: Option<String>, // Preview of matching content
+}
+
+/// Search for files by name and content
+#[tauri::command]
+fn search_files(root_path: String, query: String) -> Result<Vec<SearchResult>, String> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    let query_lower = query.to_lowercase();
+    let mut results = Vec::new();
+    
+    fn search_recursive(
+        path: &Path,
+        query_lower: &str,
+        results: &mut Vec<SearchResult>,
+    ) -> Result<(), String> {
+        if !path.exists() {
+            return Ok(());
+        }
+        
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                let name = entry_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                
+                // Skip hidden files/folders
+                if name.starts_with('.') {
+                    continue;
+                }
+                
+                if entry_path.is_dir() {
+                    // Recursively search subdirectories
+                    search_recursive(&entry_path, query_lower, results)?;
+                } else {
+                    let path_str = entry_path.to_string_lossy().to_string().replace('\\', "/");
+                    
+                    // Check filename match
+                    if name.to_lowercase().contains(query_lower) {
+                        results.push(SearchResult {
+                            path: path_str.clone(),
+                            name: name.clone(),
+                            match_type: "filename".to_string(),
+                            preview: None,
+                        });
+                    }
+                    
+                    // Check content match for text files
+                    if let Ok(content) = fs::read_to_string(&entry_path) {
+                        let content_lower = content.to_lowercase();
+                        if content_lower.contains(query_lower) {
+                            // Find the first match and extract preview
+                            if let Some(pos) = content_lower.find(query_lower) {
+                                let start = pos.saturating_sub(40);
+                                let end = (pos + query_lower.len() + 40).min(content.len());
+                                let preview = content[start..end]
+                                    .lines()
+                                    .next()
+                                    .unwrap_or(&content[start..end])
+                                    .trim()
+                                    .to_string();
+                                
+                                results.push(SearchResult {
+                                    path: path_str,
+                                    name,
+                                    match_type: "content".to_string(),
+                                    preview: Some(preview),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    let root = Path::new(&root_path);
+    search_recursive(root, &query_lower, &mut results)?;
+    
+    // Sort results: filename matches first, then content matches
+    results.sort_by(|a, b| {
+        match (a.match_type.as_str(), b.match_type.as_str()) {
+            ("filename", "content") => std::cmp::Ordering::Less,
+            ("content", "filename") => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        }
+    });
+    
+    Ok(results)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -382,6 +485,7 @@ pub fn run() {
             open_folder,
             read_file_base64,
             delete_with_terminal,
+            search_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

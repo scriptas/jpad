@@ -10,6 +10,13 @@ export interface FileNode {
     parentId?: string | null;
 }
 
+export interface SearchResult {
+    path: string;
+    name: string;
+    match_type: "filename" | "content";
+    preview?: string;
+}
+
 interface AppState {
     files: FileNode[];
     activeFileId: string | null;
@@ -18,6 +25,8 @@ interface AppState {
     selectedContent: string;
     isSaving: boolean;
     notesRoot: string;
+    searchResults: SearchResult[];
+    isSearching: boolean;
 
     // Actions
     refreshFiles: () => Promise<void>;
@@ -32,6 +41,8 @@ interface AppState {
     movePath: (oldPath: string, newPath: string) => Promise<void>;
     setEditorContent: (content: string) => void;
     setSelectedContent: (content: string) => void;
+    searchFiles: (query: string) => Promise<void>;
+    clearSearch: () => void;
 }
 
 /** Helper to find a file node recursively. */
@@ -54,6 +65,8 @@ export const useStore = create<AppState>((set, get) => ({
     selectedContent: "",
     isSaving: false,
     notesRoot: "",
+    searchResults: [],
+    isSearching: false,
 
     refreshFiles: async () => {
         let { notesRoot, activeFileId } = get();
@@ -173,4 +186,26 @@ export const useStore = create<AppState>((set, get) => ({
     setEditorContent: (content) => set({ editorContent: content }),
     
     setSelectedContent: (content) => set({ selectedContent: content }),
+
+    searchFiles: async (query) => {
+        const { notesRoot } = get();
+        if (!query.trim()) {
+            set({ searchResults: [], isSearching: false });
+            return;
+        }
+        
+        set({ isSearching: true });
+        try {
+            const results = await invoke<SearchResult[]>("search_files", {
+                rootPath: notesRoot,
+                query: query.trim(),
+            });
+            set({ searchResults: results, isSearching: false });
+        } catch (error) {
+            console.error("Search failed:", error);
+            set({ searchResults: [], isSearching: false });
+        }
+    },
+
+    clearSearch: () => set({ searchResults: [], isSearching: false }),
 }));

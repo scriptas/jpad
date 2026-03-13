@@ -14,6 +14,7 @@ import {
     ExternalLink,
     Minus,
     Settings,
+    X,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore, FileNode } from "../store/useStore";
@@ -45,6 +46,10 @@ export default function Sidebar() {
         renamePath,
         movePath,
         notesRoot,
+        searchResults,
+        isSearching,
+        searchFiles,
+        clearSearch,
     } = useStore();
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -60,6 +65,7 @@ export default function Sidebar() {
     const contextMenuRef = useRef<HTMLDivElement>(null);
     const dragCounterRef = useRef(0);
     const folderInputRef = useRef<HTMLInputElement>(null);
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Close context menu when clicking outside
     useEffect(() => {
@@ -78,6 +84,27 @@ export default function Sidebar() {
             folderInputRef.current.focus();
         }
     }, [showFolderDialog]);
+
+    // Debounced search
+    useEffect(() => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        if (searchQuery.trim()) {
+            searchTimeoutRef.current = setTimeout(() => {
+                searchFiles(searchQuery);
+            }, 300);
+        } else {
+            clearSearch();
+        }
+
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, [searchQuery, searchFiles, clearSearch]);
 
     const handleCreateFile = async (parentPath?: string) => {
         const date = new Date();
@@ -225,6 +252,24 @@ export default function Sidebar() {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [handleKeyDown]);
+
+    // Global keyboard shortcut for search (Ctrl+F / Cmd+F)
+    useEffect(() => {
+        const handleSearchShortcut = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                // Focus the search input
+                const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+        };
+        
+        document.addEventListener('keydown', handleSearchShortcut);
+        return () => document.removeEventListener('keydown', handleSearchShortcut);
+    }, []);
 
     // ── Drag & Drop helpers ──
 
@@ -459,6 +504,63 @@ export default function Sidebar() {
 
     const activeThemeIdStore = useThemeStore((state) => state.activeThemeId);
 
+    // Render search results
+    const renderSearchResults = () => {
+        if (searchResults.length === 0) {
+            return (
+                <div className="text-center text-text-muted text-xs py-8 px-4 opacity-70">
+                    {isSearching ? "Searching..." : "No results found"}
+                </div>
+            );
+        }
+
+        return searchResults.map((result) => {
+            const isActive = activeFileId === result.path;
+            
+            return (
+                <div
+                    key={result.path}
+                    className={cn(
+                        "flex flex-col py-2 px-3 mx-1 cursor-pointer rounded-md group transition-all duration-150",
+                        "hover:bg-surface-hover/60",
+                        isActive && "bg-surface text-primary ring-1 ring-primary/20"
+                    )}
+                    onClick={() => {
+                        setActiveFileId(result.path);
+                        setSearchQuery("");
+                        clearSearch();
+                    }}
+                >
+                    <div className="flex items-center gap-2">
+                        {getFileIcon(result.name)}
+                        <span className={cn(
+                            "text-[13px] truncate flex-1",
+                            isActive ? "font-semibold" : "font-normal"
+                        )}>
+                            {result.name}
+                        </span>
+                        <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded",
+                            result.match_type === "filename" 
+                                ? "bg-primary/20 text-primary" 
+                                : "bg-surface text-text-muted"
+                        )}>
+                            {result.match_type === "filename" ? "name" : "content"}
+                        </span>
+                    </div>
+                    {result.preview && (
+                        <div className="text-[11px] text-text-muted/70 mt-1 ml-6 truncate">
+                            ...{result.preview}...
+                        </div>
+                    )}
+                    <div className="text-[10px] text-text-muted/50 mt-0.5 ml-6 truncate font-mono">
+                        {result.path.replace(notesRoot + "/", "")}
+                    </div>
+                </div>
+            );
+        });
+    };
+
     return (
         <aside 
             className="w-full h-full flex flex-col border-r border-border bg-sidebar" 
@@ -514,9 +616,21 @@ export default function Sidebar() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search notes..."
-                        className="w-full bg-surface/40 border border-border/80 rounded-lg py-1.5 pl-8 pr-3 text-xs text-text placeholder:text-text-muted/80 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition-all"
+                        placeholder="Search files and content..."
+                        className="w-full bg-surface/40 border border-border/80 rounded-lg py-1.5 pl-8 pr-8 text-xs text-text placeholder:text-text-muted/80 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition-all"
                     />
+                    {searchQuery && (
+                        <button
+                            onClick={() => {
+                                setSearchQuery("");
+                                clearSearch();
+                            }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors"
+                            title="Clear search"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -533,7 +647,7 @@ export default function Sidebar() {
                     }
                 }}
             >
-                {selectedFiles.size > 0 && (
+                {selectedFiles.size > 0 && !searchQuery && (
                     <div 
                         className="mx-3 mb-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary flex items-center justify-between"
                         onClick={(e) => e.stopPropagation()}
@@ -562,14 +676,21 @@ export default function Sidebar() {
                         </div>
                     </div>
                 )}
-                {displayedFiles.length > 0 ? (
-                    renderTree(displayedFiles)
-                ) : (
-                    <div className="text-center text-text-muted text-xs py-8 px-4 opacity-70">
-                        {searchQuery
-                            ? "No files match your search"
-                            : "No files yet. Create one to get started!"}
+                
+                {searchQuery ? (
+                    // Show search results
+                    <div className="animate-in fade-in duration-200">
+                        {renderSearchResults()}
                     </div>
+                ) : (
+                    // Show file tree
+                    displayedFiles.length > 0 ? (
+                        renderTree(displayedFiles)
+                    ) : (
+                        <div className="text-center text-text-muted text-xs py-8 px-4 opacity-70">
+                            No files yet. Create one to get started!
+                        </div>
+                    )
                 )}
             </div>
 
