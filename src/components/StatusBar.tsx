@@ -1,5 +1,5 @@
 import { useStore, findFileNode } from "../store/useStore";
-import { Cloud, FileText, Check, Loader2 } from "lucide-react";
+import { Cloud, Check, Loader2 } from "lucide-react";
 import { useMemo } from "react";
 
 function calculateStats(htmlContent: string) {
@@ -33,21 +33,6 @@ export default function StatusBar() {
     const selectedStats = useMemo(() => calculateStats(selectedContent), [selectedContent]);
     
     const hasSelection = selectedContent.length > 0;
-
-    const getFileType = (name?: string) => {
-        if (!name) return "—";
-        const ext = name.split(".").pop()?.toLowerCase();
-        switch (ext) {
-            case "jt":
-                return "JPad Note";
-            case "md":
-                return "Markdown";
-            case "txt":
-                return "Plain Text";
-            default:
-                return ext?.toUpperCase() || "—";
-        }
-    };
 
     return (
         <footer className="h-[22px] bg-sidebar border-t border-border flex items-center px-3 text-[11px] text-text-muted select-none gap-3 flex-shrink-0">
