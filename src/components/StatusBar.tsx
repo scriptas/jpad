@@ -1,6 +1,6 @@
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
-import { Cloud, Check, Loader2 } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { useMemo } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -32,7 +32,7 @@ function calculateStats(htmlContent: string) {
 }
 
 export default function StatusBar() {
-    const { activeFileId, files, editorContent, selectedContent, isSaving, vimState } = useStore();
+    const { activeFileId, files, editorContent, selectedContent, vimState } = useStore();
     const { vimModeEnabled } = useSettingsStore();
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
