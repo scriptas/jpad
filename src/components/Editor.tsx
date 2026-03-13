@@ -9,6 +9,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
 import { useStore, findFileNode } from "../store/useStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -478,9 +479,10 @@ export default function Editor() {
                         <button
                             onClick={() => {
                                 const { notesRoot, createFile } = useStore.getState();
+                                const { fileNamePrefix } = useSettingsStore.getState();
                                 const date = new Date();
                                 const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-                                const defaultName = `Untitled-${timestamp}.jt`;
+                                const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
                                 createFile(`${notesRoot}/${defaultName}`);
                             }}
                             className="text-primary font-medium hover:underline focus:outline-none"

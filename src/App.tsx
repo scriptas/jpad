@@ -14,6 +14,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useThemeStore, initializeTheme } from "./store/useThemeStore";
+import { useSettingsStore } from "./store/useSettingsStore";
 import Settings from "./components/Settings";
 import NeonIcon from "./components/NeonIcon";
 import { platform } from "@tauri-apps/plugin-os";
@@ -165,9 +166,10 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === "n") {
         e.preventDefault();
         const { notesRoot, createFile } = useStore.getState();
+        const { fileNamePrefix } = useSettingsStore.getState();
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const defaultName = `Untitled-${timestamp}.jt`;
+        const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
         createFile(`${notesRoot}/${defaultName}`);
       }
     };

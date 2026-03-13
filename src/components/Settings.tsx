@@ -10,6 +10,7 @@ import {
     RotateCcw,
     Sparkles,
     ChevronRight,
+    FileText,
 } from "lucide-react";
 import {
     useThemeStore,
@@ -18,6 +19,7 @@ import {
     type Theme,
     type ThemeColors,
 } from "../store/useThemeStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -236,6 +238,86 @@ function ColorRow({
                 }}
                 className="w-[76px] text-[11px] font-mono bg-surface/60 border border-border/40 rounded-md px-2 py-1.5 text-text text-center focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
             />
+        </div>
+    );
+}
+
+/** File name prefix setting component */
+function FileNamePrefixSetting() {
+    const { fileNamePrefix, setFileNamePrefix } = useSettingsStore();
+    const [inputValue, setInputValue] = useState(fileNamePrefix);
+    const [isEditing, setIsEditing] = useState(false);
+
+    const handleSave = () => {
+        const trimmed = inputValue.trim();
+        if (trimmed && trimmed.length <= 20) {
+            setFileNamePrefix(trimmed);
+            setIsEditing(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setInputValue(fileNamePrefix);
+        setIsEditing(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") {
+            handleSave();
+        } else if (e.key === "Escape") {
+            handleCancel();
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex-1">
+                <div className="text-xs font-medium text-text mb-1">Default File Name</div>
+                <div className="text-[10px] text-text-muted/60 leading-tight">
+                    Prefix for new files (e.g., "note-123.jt")
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {isEditing ? (
+                    <>
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            maxLength={20}
+                            className="w-24 text-xs bg-surface border border-border rounded-md px-2 py-1 text-text focus:outline-none focus:ring-1 focus:ring-primary/40"
+                            placeholder="note"
+                            autoFocus
+                        />
+                        <button
+                            onClick={handleSave}
+                            disabled={!inputValue.trim() || inputValue.trim().length > 20}
+                            className="p-1 rounded hover:bg-surface-hover transition-colors disabled:opacity-50"
+                        >
+                            <Check size={12} className="text-green-400" />
+                        </button>
+                        <button
+                            onClick={handleCancel}
+                            className="p-1 rounded hover:bg-surface-hover transition-colors"
+                        >
+                            <X size={12} className="text-red-400" />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <span className="text-xs font-mono bg-surface/60 border border-border/40 rounded px-2 py-1 text-text">
+                            {fileNamePrefix}
+                        </span>
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="p-1 rounded hover:bg-surface-hover transition-colors"
+                        >
+                            <Pencil size={12} className="text-text-muted" />
+                        </button>
+                    </>
+                )}
+            </div>
         </div>
     );
 }
@@ -708,6 +790,19 @@ export default function Settings() {
                                     apply it instantly. Hover to see options. Duplicate a preset to create an
                                     editable copy with custom colors.
                                 </p>
+                            </div>
+
+                            {/* File Settings Section */}
+                            <div className="mt-8">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <FileText size={14} className="text-primary" />
+                                    <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
+                                        File Settings
+                                    </h3>
+                                </div>
+                                <div className="rounded-xl bg-surface/30 border border-border/30 p-4">
+                                    <FileNamePrefixSetting />
+                                </div>
                             </div>
                         </div>
                     )}
