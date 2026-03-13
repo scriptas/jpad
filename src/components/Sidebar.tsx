@@ -52,8 +52,12 @@ export default function Sidebar() {
     const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
+    const [showFolderDialog, setShowFolderDialog] = useState(false);
+    const [folderDialogParentPath, setFolderDialogParentPath] = useState<string | undefined>();
+    const [folderNameInput, setFolderNameInput] = useState("");
     const contextMenuRef = useRef<HTMLDivElement>(null);
     const dragCounterRef = useRef(0);
+    const folderInputRef = useRef<HTMLInputElement>(null);
 
     // Close context menu when clicking outside
     useEffect(() => {
@@ -66,6 +70,13 @@ export default function Sidebar() {
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
+    // Auto-focus folder name input when dialog opens
+    useEffect(() => {
+        if (showFolderDialog && folderInputRef.current) {
+            folderInputRef.current.focus();
+        }
+    }, [showFolderDialog]);
+
     const handleCreateFile = async (parentPath?: string) => {
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
@@ -76,11 +87,40 @@ export default function Sidebar() {
     };
 
     const handleCreateFolder = async (parentPath?: string) => {
-        const name = window.prompt("Enter folder name");
-        if (name) {
-            const basePath = parentPath || notesRoot;
-            await createFolder(`${basePath}/${name}`);
+        setFolderDialogParentPath(parentPath);
+        setFolderNameInput("");
+        setShowFolderDialog(true);
+    };
+
+    const handleFolderDialogSubmit = async () => {
+        if (!folderNameInput || !folderNameInput.trim()) {
+            return;
         }
+        
+        // Sanitize folder name - remove invalid characters
+        const sanitized = folderNameInput.trim().replace(/[\/\\:*?"<>|]/g, "");
+        
+        if (!sanitized) {
+            alert("Folder name cannot contain only special characters");
+            return;
+        }
+        
+        try {
+            const basePath = folderDialogParentPath || notesRoot;
+            const fullPath = `${basePath}/${sanitized}`;
+            
+            await createFolder(fullPath);
+            setShowFolderDialog(false);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("Failed to create folder:", message, error);
+            alert(`Failed to create folder: ${message}`);
+        }
+    };
+
+    const handleFolderDialogCancel = () => {
+        setShowFolderDialog(false);
+        setFolderNameInput("");
     };
 
     const handleDelete = async (node: FileNode) => {
@@ -495,6 +535,44 @@ export default function Sidebar() {
                         <Trash2 size={12} />
                         Delete
                     </button>
+                </div>
+            )}
+
+            {/* Folder Name Dialog */}
+            {showFolderDialog && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-surface border border-border rounded-lg shadow-xl shadow-black/40 p-6 w-80 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-lg font-semibold text-text mb-4">Create New Folder</h3>
+                        <input
+                            ref={folderInputRef}
+                            type="text"
+                            value={folderNameInput}
+                            onChange={(e) => setFolderNameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleFolderDialogSubmit();
+                                } else if (e.key === "Escape") {
+                                    handleFolderDialogCancel();
+                                }
+                            }}
+                            placeholder="Enter folder name"
+                            className="w-full bg-background border border-border rounded-md py-2 px-3 text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/50 transition-all mb-4"
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                onClick={handleFolderDialogCancel}
+                                className="px-4 py-2 text-text-muted hover:text-text hover:bg-surface-hover rounded-md transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleFolderDialogSubmit}
+                                className="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-md transition-all font-medium"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </aside>

@@ -110,7 +110,9 @@ export const useStore = create<AppState>((set, get) => ({
             await invoke("create_folder", { path });
             await get().refreshFiles();
         } catch (error) {
-            console.error("Failed to create folder:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("Failed to create folder:", message);
+            throw new Error(message);
         }
     },
 

@@ -106,7 +106,23 @@ fn create_file(path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn create_folder(path: String) -> Result<(), String> {
-    fs::create_dir_all(&path).map_err(|e| format!("Failed to create folder '{}': {}", path, e))
+    let p = Path::new(&path);
+    
+    // Validate path
+    if path.is_empty() || path.ends_with('/') {
+        return Err("Invalid folder path".to_string());
+    }
+    
+    // Check if it already exists
+    if p.exists() {
+        if p.is_dir() {
+            return Err("Folder already exists".to_string());
+        } else {
+            return Err("A file with this name already exists".to_string());
+        }
+    }
+    
+    fs::create_dir_all(&path).map_err(|e| format!("Failed to create folder: {}", e))
 }
 
 #[tauri::command]
