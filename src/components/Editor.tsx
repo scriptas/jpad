@@ -80,7 +80,7 @@ function ToolbarButton({
     children,
     className: extraClass,
 }: {
-    onClick: () => void;
+    onClick: (e: React.MouseEvent) => void;
     isActive?: boolean;
     title: string;
     children: React.ReactNode;
@@ -88,7 +88,10 @@ function ToolbarButton({
 }) {
     return (
         <button
-            onClick={onClick}
+            onMouseDown={(e) => {
+                e.preventDefault();
+                onClick(e);
+            }}
             title={title}
             className={cn(
                 "p-1.5 rounded-md transition-all duration-150",
