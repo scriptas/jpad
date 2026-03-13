@@ -180,6 +180,7 @@ function readFileAsDataURL(file: File): Promise<string> {
 export default function Editor() {
     const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setEditorContent, setSelectedContent } = useStore();
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isLoadingRef = useRef(false);
     const saveRef = useRef(saveActiveFile);
     saveRef.current = saveActiveFile;
@@ -343,19 +344,31 @@ export default function Editor() {
                 }, 600);
             },
             onSelectionUpdate: ({ editor }) => {
-                // Update selected content when selection changes
+                // Debounce selection updates to prevent lag during drag selection
                 if (!isLoadingRef.current) {
                     const { from, to, empty } = editor.state.selection;
+                    
                     if (empty) {
                         setSelectedContent("");
+                        if (selectionTimeoutRef.current) {
+                            clearTimeout(selectionTimeoutRef.current);
+                            selectionTimeoutRef.current = null;
+                        }
                     } else {
-                        // Get HTML of selected content
-                        const slice = editor.state.doc.slice(from, to);
-                        const serializer = DOMSerializer.fromSchema(editor.state.schema);
-                        const fragment = serializer.serializeFragment(slice.content);
-                        const div = document.createElement("div");
-                        div.appendChild(fragment);
-                        setSelectedContent(div.innerHTML);
+                        // Clear any pending update
+                        if (selectionTimeoutRef.current) {
+                            clearTimeout(selectionTimeoutRef.current);
+                        }
+                        
+                        // Defer the expensive serialization until selection is stable
+                        selectionTimeoutRef.current = setTimeout(() => {
+                            const slice = editor.state.doc.slice(from, to);
+                            const serializer = DOMSerializer.fromSchema(editor.state.schema);
+                            const fragment = serializer.serializeFragment(slice.content);
+                            const div = document.createElement("div");
+                            div.appendChild(fragment);
+                            setSelectedContent(div.innerHTML);
+                        }, 150);
                     }
                 }
             },
@@ -383,6 +396,7 @@ export default function Editor() {
         }
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            if (selectionTimeoutRef.current) clearTimeout(selectionTimeoutRef.current);
         };
     }, [activeFileId, editor]);
 
