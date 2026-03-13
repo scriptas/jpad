@@ -251,6 +251,13 @@ pub fn run() {
             // Get the main window
             let window = app.get_webview_window("main").unwrap();
             
+            // Show window after a brief delay to allow React to render
+            let window_clone = window.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = window_clone.show();
+            });
+            
             // Apply macOS-specific window styling for rounded corners
             #[cfg(target_os = "macos")]
             {
