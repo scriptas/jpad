@@ -602,7 +602,7 @@ export default function Settings() {
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto min-h-[500px]">
                         {/* Appearance Section */}
                         {activeSection === "appearance" && (
                             <>
