@@ -318,3 +318,33 @@
 .animate-slide-in {
   animation: slideInLeft 200ms ease-out forwards;
 }
+
+
+/* ============================================
+   Vim Mode Cursor
+   ============================================ */
+
+.vim-normal-mode {
+  caret-color: transparent !important;
+}
+
+.vim-normal-mode .ProseMirror-focused::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 1.2em;
+  background: var(--color-primary);
+  opacity: 0.8;
+  animation: vim-cursor-blink 1s step-end infinite;
+  pointer-events: none;
+  margin-left: -1px;
+}
+
+@keyframes vim-cursor-blink {
+  0%, 50% {
+    opacity: 0.8;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}

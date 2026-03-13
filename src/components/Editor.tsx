@@ -11,6 +11,7 @@ import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
+import { useVimMode } from "../hooks/useVimMode";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
@@ -179,6 +180,7 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 export default function Editor() {
     const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setEditorContent, setSelectedContent } = useStore();
+    const { vimModeEnabled } = useSettingsStore();
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const selectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isLoadingRef = useRef(false);
@@ -375,6 +377,27 @@ export default function Editor() {
         },
         []
     );
+
+    // Vim mode integration
+    const vimState = useVimMode(editor, vimModeEnabled);
+
+    // Apply vim cursor styling
+    useEffect(() => {
+        if (!editor) return;
+        
+        try {
+            if (!editor.view || !editor.view.dom) return;
+            const editorDom = editor.view.dom;
+            
+            if (vimModeEnabled && vimState.mode === "NORMAL") {
+                editorDom.classList.add("vim-normal-mode");
+            } else {
+                editorDom.classList.remove("vim-normal-mode");
+            }
+        } catch {
+            // Editor not mounted yet
+        }
+    }, [editor, vimModeEnabled, vimState.mode]);
 
     // Load file content when active file changes
     useEffect(() => {
@@ -757,6 +780,33 @@ export default function Editor() {
             <div className="flex-1 overflow-y-auto px-6 md:px-16 lg:px-32 pb-20">
                 <EditorContent editor={editor} />
             </div>
+
+            {/* Vim Mode Indicator */}
+            {vimModeEnabled && (
+                <div className="fixed bottom-16 right-6 z-50">
+                    <div className={cn(
+                        "px-3 py-1.5 rounded-lg shadow-lg border font-mono text-xs font-bold tracking-wider transition-all",
+                        vimState.mode === "NORMAL" && "bg-primary/90 text-background border-primary",
+                        vimState.mode === "INSERT" && "bg-green-500/90 text-white border-green-500",
+                        vimState.mode === "COMMAND" && "bg-blue-500/90 text-white border-blue-500",
+                        vimState.mode === "VISUAL" && "bg-purple-500/90 text-white border-purple-500"
+                    )}>
+                        {vimState.mode === "COMMAND" && vimState.commandBuffer ? (
+                            <span>:{vimState.commandBuffer}</span>
+                        ) : vimState.mode === "NORMAL" && vimState.searchTerm && vimState.searchMatches > 0 ? (
+                            <span>
+                                /{vimState.searchTerm} 
+                                <span className="ml-2 opacity-70">
+                                    [{vimState.currentMatch}/{vimState.searchMatches}]
+                                </span>
+                            </span>
+                        ) : (
+                            <span>-- {vimState.mode} --</span>
+                        )}
+                        {vimState.count && <span className="ml-2 opacity-70">{vimState.count}</span>}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

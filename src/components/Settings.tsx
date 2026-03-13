@@ -322,6 +322,36 @@ function FileNamePrefixSetting() {
     );
 }
 
+/** Vim mode toggle setting component */
+function VimModeSetting() {
+    const { vimModeEnabled, setVimModeEnabled } = useSettingsStore();
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex-1">
+                <div className="text-xs font-medium text-text mb-1">Vim Mode</div>
+                <div className="text-[10px] text-text-muted/60 leading-tight">
+                    Enable vim keybindings for navigation and editing
+                </div>
+            </div>
+            <button
+                onClick={() => setVimModeEnabled(!vimModeEnabled)}
+                className={cn(
+                    "relative w-11 h-6 rounded-full transition-colors",
+                    vimModeEnabled ? "bg-primary" : "bg-surface border border-border"
+                )}
+            >
+                <div
+                    className={cn(
+                        "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
+                        vimModeEnabled ? "right-0.5" : "left-0.5"
+                    )}
+                />
+            </button>
+        </div>
+    );
+}
+
 export default function Settings() {
     const {
         activeThemeId,
@@ -797,11 +827,16 @@ export default function Settings() {
                                 <div className="flex items-center gap-2 mb-4">
                                     <FileText size={14} className="text-primary" />
                                     <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
-                                        File Settings
+                                        Editor Settings
                                     </h3>
                                 </div>
-                                <div className="rounded-xl bg-surface/30 border border-border/30 p-4">
-                                    <FileNamePrefixSetting />
+                                <div className="rounded-xl bg-surface/30 border border-border/30 divide-y divide-border/20">
+                                    <div className="p-4">
+                                        <FileNamePrefixSetting />
+                                    </div>
+                                    <div className="p-4">
+                                        <VimModeSetting />
+                                    </div>
                                 </div>
                             </div>
                         </div>
