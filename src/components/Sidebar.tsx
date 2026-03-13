@@ -318,8 +318,11 @@ export default function Sidebar() {
                         )}
                         style={{ paddingLeft: `${depth * 16 + 8}px` }}
                         onClick={() => {
-                            if (node.type === "folder") toggleExpand(node.id);
-                            else setActiveFileId(node.id);
+                            if (node.type === "folder") {
+                                toggleExpand(node.id);
+                            } else {
+                                setActiveFileId(node.id);
+                            }
                         }}
                         onContextMenu={(e) => handleContextMenu(e, node)}
                     >

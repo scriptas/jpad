@@ -350,6 +350,14 @@ export default function Editor() {
             loadFileContent(activeFileId).then((content) => {
                 editor.commands.setContent(content || "");
                 editor.commands.focus(); // Auto-focus for "instastart"
+                
+                // Position cursor at end of document
+                setTimeout(() => {
+                    const { state } = editor;
+                    const endPos = state.doc.content.size;
+                    editor.commands.setTextSelection(endPos);
+                }, 50);
+                
                 isLoadingRef.current = false;
             });
         }
