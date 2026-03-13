@@ -16,7 +16,7 @@ import {
     Settings,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { useStore, FileNode, findFileNode } from "../store/useStore";
+import { useStore, FileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -130,26 +130,15 @@ export default function Sidebar() {
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         
         if (isMac) {
-            // On macOS, open Finder so user can delete natively
-            const confirmMsg = node.type === "folder"
-                ? `Open Finder to delete folder "${node.name}"?`
-                : `Open Finder to delete "${node.name}"?`;
-            if (window.confirm(confirmMsg)) {
-                try {
-                    await invoke("reveal_path", { path: node.id });
-                } catch (error) {
-                    console.error('Error opening Finder:', error);
-                    alert(`Failed to open Finder: ${error instanceof Error ? error.message : String(error)}`);
-                }
+            // On macOS, open Terminal with rm command
+            try {
+                await invoke("delete_with_terminal", { paths: [node.id] });
+            } catch (error) {
+                console.error('Error opening Terminal:', error);
             }
         } else {
             // On Windows/Linux, delete directly
-            const confirmMsg = node.type === "folder"
-                ? `Delete folder "${node.name}" and all its contents?`
-                : `Delete "${node.name}"?`;
-            if (window.confirm(confirmMsg)) {
-                await deletePath(node.id);
-            }
+            await deletePath(node.id);
         }
     };
 
@@ -160,52 +149,27 @@ export default function Sidebar() {
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         
         if (isMac) {
-            // On macOS, open Finder for each selected file so user can delete natively
-            const fileNames = Array.from(selectedFiles).map(id => {
-                const node = findFileNode(files, id);
-                return node?.name || id;
-            });
-            
-            const confirmMsg = selectedFiles.size === 1 
-                ? `Open Finder to delete "${fileNames[0]}"?`
-                : `Open Finder to delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
-            
-            if (window.confirm(confirmMsg)) {
-                try {
-                    for (const fileId of selectedFiles) {
-                        await invoke("reveal_path", { path: fileId });
-                    }
-                    // Clear selection after opening Finder
-                    setSelectedFiles(new Set());
-                    setLastSelectedId(null);
-                } catch (error) {
-                    console.error('Error opening Finder:', error);
-                    alert(`Failed to open Finder: ${error instanceof Error ? error.message : String(error)}`);
-                }
+            // On macOS, open Terminal with rm command
+            try {
+                const filePaths = Array.from(selectedFiles);
+                await invoke("delete_with_terminal", { paths: filePaths });
+                // Clear selection after opening Terminal
+                setSelectedFiles(new Set());
+                setLastSelectedId(null);
+            } catch (error) {
+                console.error('Error opening Terminal:', error);
             }
         } else {
             // On Windows/Linux, delete directly
-            const fileNames = Array.from(selectedFiles).map(id => {
-                const node = findFileNode(files, id);
-                return node?.name || id;
-            });
-            
-            const confirmMsg = selectedFiles.size === 1 
-                ? `Delete "${fileNames[0]}"?`
-                : `Delete ${selectedFiles.size} selected items?\n\n${fileNames.join('\n')}`;
-                
-            if (window.confirm(confirmMsg)) {
-                try {
-                    for (const fileId of selectedFiles) {
-                        await deletePath(fileId);
-                    }
-                    // Clear selection after deletion
-                    setSelectedFiles(new Set());
-                    setLastSelectedId(null);
-                } catch (error) {
-                    console.error('Error during deletion:', error);
-                    alert(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`);
+            try {
+                for (const fileId of selectedFiles) {
+                    await deletePath(fileId);
                 }
+                // Clear selection after deletion
+                setSelectedFiles(new Set());
+                setLastSelectedId(null);
+            } catch (error) {
+                console.error('Error during deletion:', error);
             }
         }
     }, [selectedFiles, files, deletePath]);
@@ -594,17 +558,24 @@ export default function Sidebar() {
                 }}
             >
                 {selectedFiles.size > 0 && (
-                    <div className="mx-3 mb-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary flex items-center justify-between">
+                    <div 
+                        className="mx-3 mb-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded-md text-xs text-primary flex items-center justify-between"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <span>{selectedFiles.size} item{selectedFiles.size > 1 ? 's' : ''} selected</span>
                         <div className="flex gap-2">
                             <button
-                                onClick={handleDeleteSelected}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSelected();
+                                }}
                                 className="text-red-400 hover:text-red-300 text-xs underline"
                             >
                                 Delete
                             </button>
                             <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedFiles(new Set());
                                     setLastSelectedId(null);
                                 }}

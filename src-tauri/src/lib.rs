@@ -204,6 +204,47 @@ fn reveal_path(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_with_terminal(paths: Vec<String>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        
+        // Escape paths for shell
+        let escaped_paths: Vec<String> = paths.iter()
+            .map(|p| format!("'{}'", p.replace("'", "'\\''")))
+            .collect();
+        
+        // Create rm -rf command
+        let rm_command = format!("rm -rf {}", escaped_paths.join(" "));
+        
+        // Open Terminal and execute the command directly
+        // User will see the command and can Cmd+C to cancel before it executes
+        let script = format!(
+            r#"tell application "Terminal"
+                activate
+                do script "echo 'Deleting files:' && echo '{}' && echo '' && echo 'Executing: {}' && sleep 2 && {} && echo '' && echo 'Files deleted. Press any key to close...' && read -n 1"
+            end tell"#,
+            paths.join("\n"),
+            rm_command,
+            rm_command
+        );
+        
+        Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .spawn()
+            .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        return Err("This command is only available on macOS".to_string());
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
 fn open_folder(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -340,6 +381,7 @@ pub fn run() {
             reveal_path,
             open_folder,
             read_file_base64,
+            delete_with_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
