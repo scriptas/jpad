@@ -66,4 +66,4 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-Works on windows, mac and linux. Although mac is yet to be tested.
+Works on windows, mac and linux.
