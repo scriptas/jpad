@@ -53,7 +53,7 @@ export const useStore = create<AppState>((set, get) => ({
     notesRoot: "",
 
     refreshFiles: async () => {
-        let { notesRoot } = get();
+        let { notesRoot, activeFileId } = get();
         try {
             // Resolve absolute notes root from Rust on first call
             if (!notesRoot) {
@@ -61,6 +61,13 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ notesRoot });
             }
             const files = await invoke<FileNode[]>("list_files", { path: notesRoot });
+            
+            // Check if the currently active file still exists
+            if (activeFileId && !findFileNode(files, activeFileId)) {
+                // Active file was deleted externally, clear it
+                set({ activeFileId: null, editorContent: "" });
+            }
+            
             set({ files });
         } catch (error) {
             console.error("Failed to list files:", error);
@@ -91,6 +98,9 @@ export const useStore = create<AppState>((set, get) => ({
             return content;
         } catch (error) {
             console.error("Failed to read file:", error);
+            // File might have been deleted externally
+            set({ activeFileId: null, editorContent: "" });
+            await get().refreshFiles();
             return "";
         }
     },

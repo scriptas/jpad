@@ -40,7 +40,23 @@ export default function App() {
     refreshFiles();
     initializeTheme();
     setIsMacOS(platform() === "macos");
-  }, []);
+
+    // Periodic file system refresh to detect external changes
+    const refreshInterval = setInterval(() => {
+      refreshFiles();
+    }, 3000); // Refresh every 3 seconds
+
+    // Also refresh when window regains focus
+    const handleFocus = () => {
+      refreshFiles();
+    };
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [refreshFiles]);
 
   // Listen for maximize/unmaximize
   useEffect(() => {
