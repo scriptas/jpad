@@ -1,5 +1,16 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import type { VimMode } from "../hooks/useVimMode";
+
+export interface VimState {
+    mode: VimMode;
+    commandBuffer: string;
+    searchTerm: string;
+    yankBuffer: string;
+    count: string;
+    searchMatches: number;
+    currentMatch: number;
+}
 
 export interface FileNode {
     id: string; // path (forward-slash normalized)
@@ -27,6 +38,7 @@ interface AppState {
     notesRoot: string;
     searchResults: SearchResult[];
     isSearching: boolean;
+    vimState: VimState | null;
 
     // Actions
     refreshFiles: () => Promise<void>;
@@ -43,6 +55,7 @@ interface AppState {
     setSelectedContent: (content: string) => void;
     searchFiles: (query: string) => Promise<void>;
     clearSearch: () => void;
+    setVimState: (state: VimState | null) => void;
 }
 
 /** Helper to find a file node recursively. */
@@ -67,6 +80,7 @@ export const useStore = create<AppState>((set, get) => ({
     notesRoot: "",
     searchResults: [],
     isSearching: false,
+    vimState: null,
 
     refreshFiles: async () => {
         let { notesRoot, activeFileId } = get();
@@ -208,4 +222,6 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     clearSearch: () => set({ searchResults: [], isSearching: false }),
+    
+    setVimState: (state) => set({ vimState: state }),
 }));

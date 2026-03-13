@@ -326,18 +326,25 @@
 
 .vim-normal-mode {
   caret-color: transparent !important;
+  position: relative;
 }
 
-.vim-normal-mode .ProseMirror-focused::after {
-  content: '';
+/* Block cursor for vim normal mode */
+.vim-normal-mode .ProseMirror {
+  position: relative;
+}
+
+.vim-block-cursor {
   position: absolute;
-  width: 8px;
-  height: 1.2em;
+  width: 1ch;
+  height: 1.3em;
   background: var(--color-primary);
-  opacity: 0.8;
-  animation: vim-cursor-blink 1s step-end infinite;
+  opacity: 0.7;
   pointer-events: none;
-  margin-left: -1px;
+  z-index: 10;
+  animation: vim-cursor-blink 1.2s step-end infinite;
+  box-sizing: border-box;
+  border: 1px solid var(--color-primary);
 }
 
 @keyframes vim-cursor-blink {

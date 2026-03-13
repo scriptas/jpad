@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Editor } from "@tiptap/react";
+import { useStore } from "../store/useStore";
 
 export type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "COMMAND";
 
@@ -14,7 +15,8 @@ interface VimState {
 }
 
 export function useVimMode(editor: Editor | null, enabled: boolean) {
-    const [vimState, setVimState] = useState<VimState>({
+    const { setVimState } = useStore();
+    const stateRef = useRef<VimState>({
         mode: "NORMAL",
         commandBuffer: "",
         searchTerm: "",
@@ -24,8 +26,10 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
         currentMatch: 0,
     });
 
-    const stateRef = useRef(vimState);
-    stateRef.current = vimState;
+    const updateState = (updater: (prev: VimState) => VimState) => {
+        stateRef.current = updater(stateRef.current);
+        setVimState(stateRef.current);
+    };
 
     useEffect(() => {
         if (!enabled || !editor) return;
@@ -38,26 +42,12 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
             return;
         }
 
-        // Start in NORMAL mode and blur editor
-        setVimState(prev => ({ ...prev, mode: "NORMAL" }));
-        editor.commands.blur();
+        // Start in NORMAL mode and keep editor focused
+        updateState(prev => ({ ...prev, mode: "NORMAL" }));
+        editor.commands.focus();
 
         const handleKeyDown = (e: KeyboardEvent) => {
             const state = stateRef.current;
-
-            // In NORMAL mode, prevent ALL default behavior for the editor
-            if (state.mode === "NORMAL") {
-                // Check if the event target is the editor
-                try {
-                    const editorDom = editor.view?.dom;
-                    if (editorDom && (editorDom.contains(e.target as Node) || e.target === editorDom)) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                } catch {
-                    // Editor not available
-                }
-            }
 
             // COMMAND mode (: commands)
             if (state.mode === "COMMAND") {
@@ -65,22 +55,20 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                 e.stopPropagation();
                 
                 if (e.key === "Escape") {
-                    setVimState(prev => ({ ...prev, mode: "NORMAL", commandBuffer: "" }));
-                    editor.commands.blur();
+                    updateState(prev => ({ ...prev, mode: "NORMAL", commandBuffer: "" }));
                     return;
                 }
                 if (e.key === "Enter") {
                     executeCommand(state.commandBuffer);
-                    setVimState(prev => ({ ...prev, mode: "NORMAL", commandBuffer: "" }));
-                    editor.commands.blur();
+                    updateState(prev => ({ ...prev, mode: "NORMAL", commandBuffer: "" }));
                     return;
                 }
                 if (e.key === "Backspace") {
-                    setVimState(prev => ({ ...prev, commandBuffer: prev.commandBuffer.slice(0, -1) }));
+                    updateState(prev => ({ ...prev, commandBuffer: prev.commandBuffer.slice(0, -1) }));
                     return;
                 }
                 if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                    setVimState(prev => ({ ...prev, commandBuffer: prev.commandBuffer + e.key }));
+                    updateState(prev => ({ ...prev, commandBuffer: prev.commandBuffer + e.key }));
                 }
                 return;
             }
@@ -90,8 +78,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                 if (e.key === "Escape") {
                     e.preventDefault();
                     e.stopPropagation();
-                    setVimState(prev => ({ ...prev, mode: "NORMAL" }));
-                    editor.commands.blur();
+                    updateState(prev => ({ ...prev, mode: "NORMAL" }));
                 }
                 // Let all other keys pass through normally in INSERT mode
                 return;
@@ -99,13 +86,34 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
 
             // NORMAL mode - vim keybindings
             if (state.mode === "NORMAL") {
-                // Always prevent default in NORMAL mode
+                // Check if this is a vim command key - if so, prevent default
+                const isVimKey = /^[hjklwbeioxaAIOgGdunN0\$\^\/:]$/.test(e.key) || 
+                                 (e.ctrlKey && e.key === 'r') ||
+                                 e.key === 'Escape';
+                
+                // Check if this is a navigation key we want to allow
+                const isNavigationKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
+                                         'PageUp', 'PageDown', 'Home', 'End'].includes(e.key);
+                
+                if (!isVimKey && !isNavigationKey) {
+                    // Not a vim key or navigation key - prevent all input
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                if (isNavigationKey) {
+                    // Allow navigation keys to work normally
+                    return;
+                }
+                
+                // This is a vim key, prevent default and handle it
                 e.preventDefault();
                 e.stopPropagation();
 
                 // Numbers for count
                 if (/^[0-9]$/.test(e.key)) {
-                    setVimState(prev => ({ ...prev, count: prev.count + e.key }));
+                    updateState(prev => ({ ...prev, count: prev.count + e.key }));
                     return;
                 }
 
@@ -113,12 +121,12 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
 
                 // Mode switches
                 if (e.key === "i") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     return;
                 }
                 if (e.key === "a") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     // Move cursor right
                     const { from } = editor.state.selection;
@@ -126,7 +134,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     return;
                 }
                 if (e.key === "A") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     // Move to end of line
                     const { state } = editor;
@@ -136,7 +144,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     return;
                 }
                 if (e.key === "I") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     // Move to start of line
                     const { state } = editor;
@@ -146,7 +154,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     return;
                 }
                 if (e.key === "o") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     // Move to end of line and insert new line
                     const { state } = editor;
@@ -157,7 +165,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     return;
                 }
                 if (e.key === "O") {
-                    setVimState(prev => ({ ...prev, mode: "INSERT", count: "" }));
+                    updateState(prev => ({ ...prev, mode: "INSERT", count: "" }));
                     editor.commands.focus();
                     // Move to start of line, insert new line, and move up
                     const { state } = editor;
@@ -182,7 +190,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         }
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "j") {
@@ -190,7 +198,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         moveDown(editor);
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "k") {
@@ -198,7 +206,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         moveUp(editor);
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "l") {
@@ -210,7 +218,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         }
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
 
@@ -220,7 +228,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         moveToNextWord(editor);
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "b") {
@@ -228,7 +236,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         moveToPrevWord(editor);
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "e") {
@@ -236,7 +244,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         moveToEndOfWord(editor);
                     }
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
 
@@ -247,7 +255,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     const start = $from.start();
                     editor.commands.setTextSelection(start);
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "$") {
@@ -256,7 +264,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     const end = $from.end();
                     editor.commands.setTextSelection(end);
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "^") {
@@ -265,7 +273,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     const start = $from.start();
                     editor.commands.setTextSelection(start);
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
 
@@ -275,12 +283,12 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         // gg - go to top
                         editor.commands.setTextSelection(0);
                         scrollCursorIntoView(editor);
-                        setVimState(prev => ({ ...prev, commandBuffer: "", count: "" }));
+                        updateState(prev => ({ ...prev, commandBuffer: "", count: "" }));
                     } else {
-                        setVimState(prev => ({ ...prev, commandBuffer: "g" }));
+                        updateState(prev => ({ ...prev, commandBuffer: "g" }));
                         setTimeout(() => {
                             if (stateRef.current.commandBuffer === "g") {
-                                setVimState(prev => ({ ...prev, commandBuffer: "" }));
+                                updateState(prev => ({ ...prev, commandBuffer: "" }));
                             }
                         }, 1000);
                     }
@@ -291,7 +299,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     const endPos = editor.state.doc.content.size;
                     editor.commands.setTextSelection(endPos);
                     scrollCursorIntoView(editor);
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
 
@@ -303,7 +311,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         editor.commands.setTextSelection({ from, to: from + 1 });
                         editor.commands.deleteSelection();
                     }
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.key === "d") {
@@ -312,12 +320,12 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                         for (let i = 0; i < count; i++) {
                             deleteLine(editor);
                         }
-                        setVimState(prev => ({ ...prev, commandBuffer: "", count: "" }));
+                        updateState(prev => ({ ...prev, commandBuffer: "", count: "" }));
                     } else {
-                        setVimState(prev => ({ ...prev, commandBuffer: "d" }));
+                        updateState(prev => ({ ...prev, commandBuffer: "d" }));
                         setTimeout(() => {
                             if (stateRef.current.commandBuffer === "d") {
-                                setVimState(prev => ({ ...prev, commandBuffer: "" }));
+                                updateState(prev => ({ ...prev, commandBuffer: "" }));
                             }
                         }, 1000);
                     }
@@ -329,27 +337,27 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     for (let i = 0; i < count; i++) {
                         editor.commands.undo();
                     }
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
                 if (e.ctrlKey && e.key === "r") {
                     for (let i = 0; i < count; i++) {
                         editor.commands.redo();
                     }
-                    setVimState(prev => ({ ...prev, count: "" }));
+                    updateState(prev => ({ ...prev, count: "" }));
                     return;
                 }
 
                 // Search
                 if (e.key === "/") {
-                    setVimState(prev => ({ ...prev, mode: "COMMAND", commandBuffer: "/" }));
+                    updateState(prev => ({ ...prev, mode: "COMMAND", commandBuffer: "/" }));
                     return;
                 }
                 if (e.key === "n") {
                     // Find next occurrence
                     if (state.searchTerm) {
                         findNext(editor, state.searchTerm, (matches, current) => {
-                            setVimState(prev => ({ 
+                            updateState(prev => ({ 
                                 ...prev, 
                                 searchMatches: matches, 
                                 currentMatch: current 
@@ -362,7 +370,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     // Find previous occurrence
                     if (state.searchTerm) {
                         findPrev(editor, state.searchTerm, (matches, current) => {
-                            setVimState(prev => ({ 
+                            updateState(prev => ({ 
                                 ...prev, 
                                 searchMatches: matches, 
                                 currentMatch: current 
@@ -374,13 +382,13 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
 
                 // Command mode
                 if (e.key === ":") {
-                    setVimState(prev => ({ ...prev, mode: "COMMAND", commandBuffer: "" }));
+                    updateState(prev => ({ ...prev, mode: "COMMAND", commandBuffer: "" }));
                     return;
                 }
 
                 // Clear count on escape
                 if (e.key === "Escape") {
-                    setVimState(prev => ({ ...prev, count: "", commandBuffer: "" }));
+                    updateState(prev => ({ ...prev, count: "", commandBuffer: "" }));
                     return;
                 }
             }
@@ -398,7 +406,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
             const term = cmd.slice(1);
             if (term) {
                 findNext(editor, term, (matches, current) => {
-                    setVimState(prev => ({ 
+                    updateState(prev => ({ 
                         ...prev, 
                         searchTerm: term,
                         searchMatches: matches,
@@ -418,7 +426,12 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
         }
     };
 
-    return vimState;
+    // Cleanup on unmount or when disabled
+    useEffect(() => {
+        if (!enabled) {
+            setVimState(null);
+        }
+    }, [enabled, setVimState]);
 }
 
 // Helper functions
@@ -442,71 +455,45 @@ function scrollCursorIntoView(editor: Editor) {
 function moveUp(editor: Editor) {
     const { state } = editor;
     const { $from } = state.selection;
-    const pos = $from.pos;
     
-    // Get the resolved position
-    const resolvedPos = state.doc.resolve(pos);
+    // Try to move to the previous block
+    const prevBlockPos = $from.before($from.depth);
     
-    // If we're at the first line, do nothing
-    if (resolvedPos.parentOffset === 0 && resolvedPos.depth === 1) {
+    if (prevBlockPos <= 0) {
+        // Already at the first block
         return;
     }
     
-    // Try to move up by finding text position
-    const text = state.doc.textBetween(0, pos, "\n", "\n");
-    const lines = text.split("\n");
+    // Find the previous block
+    const $prevBlock = state.doc.resolve(prevBlockPos - 1);
     
-    if (lines.length <= 1) return;
+    // Try to maintain horizontal position
+    const targetOffset = Math.min($from.parentOffset, $prevBlock.parent.content.size);
+    const newPos = $prevBlock.start() + targetOffset;
     
-    // Find current line and position in line
-    const currentLineIndex = lines.length - 1;
-    const currentLine = lines[currentLineIndex];
-    const posInLine = currentLine.length;
-    
-    // Get previous line
-    const prevLine = lines[currentLineIndex - 1];
-    
-    // Calculate new position
-    const prevLinesLength = lines.slice(0, currentLineIndex - 1).join("\n").length + (currentLineIndex > 1 ? currentLineIndex - 1 : 0);
-    const newPosInLine = Math.min(posInLine, prevLine.length);
-    const newPos = prevLinesLength + newPosInLine;
-    
-    editor.commands.setTextSelection(Math.max(0, newPos));
+    editor.commands.setTextSelection(newPos);
 }
 
 function moveDown(editor: Editor) {
     const { state } = editor;
     const { $from } = state.selection;
-    const pos = $from.pos;
-    const maxPos = state.doc.content.size;
     
-    // Get all text
-    const text = state.doc.textBetween(0, maxPos, "\n", "\n");
-    const beforeCursor = text.slice(0, pos);
-    const afterCursor = text.slice(pos);
+    // Try to move to the next block
+    const nextBlockPos = $from.after($from.depth);
     
-    const linesBefore = beforeCursor.split("\n");
-    const currentLineIndex = linesBefore.length - 1;
-    const currentLine = linesBefore[currentLineIndex];
-    const posInLine = currentLine.length;
+    if (nextBlockPos >= state.doc.content.size) {
+        // Already at the last block
+        return;
+    }
     
-    // Find next newline
-    const nextNewlineIndex = afterCursor.indexOf("\n");
+    // Find the next block
+    const $nextBlock = state.doc.resolve(nextBlockPos + 1);
     
-    // If no next line, do nothing
-    if (nextNewlineIndex === -1) return;
+    // Try to maintain horizontal position
+    const targetOffset = Math.min($from.parentOffset, $nextBlock.parent.content.size);
+    const newPos = $nextBlock.start() + targetOffset;
     
-    // Get the next line
-    const nextLineStart = pos + nextNewlineIndex + 1;
-    const remainingAfterNextLine = text.slice(nextLineStart);
-    const nextNewlineIndex2 = remainingAfterNextLine.indexOf("\n");
-    const nextLine = nextNewlineIndex2 === -1 ? remainingAfterNextLine : remainingAfterNextLine.slice(0, nextNewlineIndex2);
-    
-    // Calculate new position
-    const newPosInLine = Math.min(posInLine, nextLine.length);
-    const newPos = nextLineStart + newPosInLine;
-    
-    editor.commands.setTextSelection(Math.min(newPos, maxPos));
+    editor.commands.setTextSelection(newPos);
 }
 function moveToNextWord(editor: Editor) {
     const { state } = editor;
@@ -544,10 +531,38 @@ function moveToEndOfWord(editor: Editor) {
 function deleteLine(editor: Editor) {
     const { state } = editor;
     const { $from } = state.selection;
-    const start = $from.start();
-    const end = $from.end();
-    editor.commands.setTextSelection({ from: start, to: end });
-    editor.commands.deleteSelection();
+    
+    // Get the current line boundaries
+    const lineStart = $from.start();
+    const lineEnd = $from.end();
+    
+    // Determine what to delete
+    let deleteFrom = lineStart;
+    let deleteTo = lineEnd;
+    
+    // Check if there's a next line (content after current line end)
+    if (lineEnd < state.doc.content.size - 1) {
+        // Not the last line - delete from line start to after the newline
+        if (lineStart > 0) {
+            deleteFrom = lineStart - 1; // Include the newline before
+        }
+        deleteTo = lineEnd;
+    } else {
+        // This is the last line
+        if (lineStart > 0) {
+            // Delete the newline before this line and the line content
+            deleteFrom = lineStart - 1;
+            deleteTo = lineEnd;
+        } else {
+            // Only line in document - just clear its content
+            deleteFrom = lineStart;
+            deleteTo = lineEnd;
+        }
+    }
+    
+    // Perform the deletion
+    const tr = state.tr.delete(deleteFrom, deleteTo);
+    editor.view.dispatch(tr);
 }
 
 function getAllMatches(editor: Editor, term: string): number[] {

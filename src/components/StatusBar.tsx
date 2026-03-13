@@ -1,6 +1,13 @@
 import { useStore, findFileNode } from "../store/useStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { Cloud, Check, Loader2 } from "lucide-react";
 import { useMemo } from "react";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
 
 function calculateStats(htmlContent: string) {
     if (!htmlContent) {
@@ -25,7 +32,8 @@ function calculateStats(htmlContent: string) {
 }
 
 export default function StatusBar() {
-    const { activeFileId, files, editorContent, selectedContent, isSaving } = useStore();
+    const { activeFileId, files, editorContent, selectedContent, isSaving, vimState } = useStore();
+    const { vimModeEnabled } = useSettingsStore();
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
@@ -76,6 +84,31 @@ export default function StatusBar() {
                             </>
                         )}
                     </span>
+                    
+                    {/* Vim Mode Indicator */}
+                    {vimModeEnabled && vimState && (
+                        <>
+                            <div className="w-[1px] h-2.5 bg-border" />
+                            <div className={cn(
+                                "px-2 py-0.5 rounded font-mono text-[10px] font-semibold tracking-wider transition-all",
+                                vimState.mode === "NORMAL" && "bg-primary/20 text-primary",
+                                vimState.mode === "INSERT" && "bg-green-500/20 text-green-400",
+                                vimState.mode === "COMMAND" && "bg-blue-500/20 text-blue-400",
+                                vimState.mode === "VISUAL" && "bg-purple-500/20 text-purple-400"
+                            )}>
+                                {vimState.mode === "COMMAND" && vimState.commandBuffer ? (
+                                    <span>:{vimState.commandBuffer}</span>
+                                ) : vimState.mode === "NORMAL" && vimState.searchTerm && vimState.searchMatches > 0 ? (
+                                    <span>
+                                        /{vimState.searchTerm} [{vimState.currentMatch}/{vimState.searchMatches}]
+                                    </span>
+                                ) : (
+                                    <span>{vimState.mode}</span>
+                                )}
+                                {vimState.count && <span className="ml-1 opacity-70">{vimState.count}</span>}
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </footer>

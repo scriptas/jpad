@@ -379,25 +379,88 @@ export default function Editor() {
     );
 
     // Vim mode integration
-    const vimState = useVimMode(editor, vimModeEnabled);
+    useVimMode(editor, vimModeEnabled);
+    const vimState = useStore((state) => state.vimState);
 
-    // Apply vim cursor styling
+    // Apply vim cursor styling and create block cursor
     useEffect(() => {
-        if (!editor) return;
+        if (!editor || !vimModeEnabled || !vimState) return;
         
         try {
             if (!editor.view || !editor.view.dom) return;
             const editorDom = editor.view.dom;
+            const proseMirrorEl = editorDom.querySelector('.ProseMirror') as HTMLElement;
+            if (!proseMirrorEl) return;
             
-            if (vimModeEnabled && vimState.mode === "NORMAL") {
+            if (vimState.mode === "NORMAL") {
                 editorDom.classList.add("vim-normal-mode");
+                
+                // Ensure editor stays focused
+                if (!editor.isFocused) {
+                    editor.commands.focus();
+                }
+                
+                // Create and position block cursor
+                let cursorEl = proseMirrorEl.querySelector('.vim-block-cursor') as HTMLElement;
+                if (!cursorEl) {
+                    cursorEl = document.createElement('div');
+                    cursorEl.className = 'vim-block-cursor';
+                    cursorEl.style.position = 'absolute';
+                    cursorEl.style.width = '1ch';
+                    cursorEl.style.height = '1.3em';
+                    cursorEl.style.background = 'var(--color-primary)';
+                    cursorEl.style.opacity = '0.7';
+                    cursorEl.style.pointerEvents = 'none';
+                    cursorEl.style.zIndex = '10';
+                    proseMirrorEl.appendChild(cursorEl);
+                }
+                
+                // Position the cursor at the current selection
+                const updateCursorPosition = () => {
+                    try {
+                        const { from } = editor.state.selection;
+                        const coords = editor.view.coordsAtPos(from);
+                        const proseMirrorRect = proseMirrorEl.getBoundingClientRect();
+                        
+                        const left = coords.left - proseMirrorRect.left;
+                        const top = coords.top - proseMirrorRect.top;
+                        
+                        cursorEl.style.left = `${left}px`;
+                        cursorEl.style.top = `${top}px`;
+                        cursorEl.style.display = 'block';
+                    } catch (e) {
+                        // Position not available yet
+                    }
+                };
+                
+                updateCursorPosition();
+                
+                // Update cursor position on selection change
+                const handleTransaction = () => {
+                    if (vimState?.mode === "NORMAL") {
+                        updateCursorPosition();
+                    }
+                };
+                
+                editor.on('selectionUpdate', handleTransaction);
+                editor.on('update', handleTransaction);
+                
+                return () => {
+                    editor.off('selectionUpdate', handleTransaction);
+                    editor.off('update', handleTransaction);
+                    cursorEl?.remove();
+                };
             } else {
                 editorDom.classList.remove("vim-normal-mode");
+                const cursorEl = proseMirrorEl.querySelector('.vim-block-cursor');
+                if (cursorEl) {
+                    cursorEl.remove();
+                }
             }
-        } catch {
+        } catch (e) {
             // Editor not mounted yet
         }
-    }, [editor, vimModeEnabled, vimState.mode]);
+    }, [editor, vimModeEnabled, vimState?.mode]);
 
     // Load file content when active file changes
     useEffect(() => {
@@ -780,33 +843,6 @@ export default function Editor() {
             <div className="flex-1 overflow-y-auto px-6 md:px-16 lg:px-32 pb-20">
                 <EditorContent editor={editor} />
             </div>
-
-            {/* Vim Mode Indicator */}
-            {vimModeEnabled && (
-                <div className="fixed bottom-16 right-6 z-50">
-                    <div className={cn(
-                        "px-3 py-1.5 rounded-lg shadow-lg border font-mono text-xs font-bold tracking-wider transition-all",
-                        vimState.mode === "NORMAL" && "bg-primary/90 text-background border-primary",
-                        vimState.mode === "INSERT" && "bg-green-500/90 text-white border-green-500",
-                        vimState.mode === "COMMAND" && "bg-blue-500/90 text-white border-blue-500",
-                        vimState.mode === "VISUAL" && "bg-purple-500/90 text-white border-purple-500"
-                    )}>
-                        {vimState.mode === "COMMAND" && vimState.commandBuffer ? (
-                            <span>:{vimState.commandBuffer}</span>
-                        ) : vimState.mode === "NORMAL" && vimState.searchTerm && vimState.searchMatches > 0 ? (
-                            <span>
-                                /{vimState.searchTerm} 
-                                <span className="ml-2 opacity-70">
-                                    [{vimState.currentMatch}/{vimState.searchMatches}]
-                                </span>
-                            </span>
-                        ) : (
-                            <span>-- {vimState.mode} --</span>
-                        )}
-                        {vimState.count && <span className="ml-2 opacity-70">{vimState.count}</span>}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

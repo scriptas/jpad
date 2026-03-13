@@ -352,6 +352,8 @@ function VimModeSetting() {
     );
 }
 
+type SettingsSection = "appearance" | "filename" | "vim";
+
 export default function Settings() {
     const {
         activeThemeId,
@@ -365,6 +367,7 @@ export default function Settings() {
         getActiveTheme,
     } = useThemeStore();
 
+    const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
     const [editingTheme, setEditingTheme] = useState<Theme | null>(null);
     const [editColors, setEditColors] = useState<ThemeColors | null>(null);
     const [editName, setEditName] = useState("");
@@ -376,11 +379,8 @@ export default function Settings() {
     // Enable dragging on backdrop and header
     useEffect(() => {
         const handleMouseDown = (e: MouseEvent) => {
-            // Don't drag if clicking on a button or interactive element
             if ((e.target as HTMLElement).closest("button, input, a")) return;
-            // Primary (left) button only
             if (e.buttons !== 1) return;
-            // Start dragging
             appWindow.startDragging();
         };
 
@@ -412,7 +412,6 @@ export default function Settings() {
     }, [editColors]);
 
     const handleClose = () => {
-        // If we were editing, revert to the active theme
         if (editColors) {
             const activeTheme = getActiveTheme();
             applyThemeToDOM(activeTheme.colors);
@@ -478,7 +477,6 @@ export default function Settings() {
             if (editName !== editingTheme.name) {
                 renameCustomTheme(editingTheme.id, editName);
             }
-            // Re-apply if this is the active theme
             if (activeThemeId === editingTheme.id) {
                 applyThemeToDOM(editColors);
             }
@@ -512,7 +510,6 @@ export default function Settings() {
         setEditColors({ ...editColors, [key]: value });
     };
 
-
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
             {/* Backdrop */}
@@ -525,7 +522,7 @@ export default function Settings() {
             {/* Settings Panel */}
             <div
                 ref={panelRef}
-                className="relative z-10 w-[680px] max-h-[85vh] bg-sidebar border border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+                className="relative z-10 w-[780px] max-h-[85vh] bg-sidebar border border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
             >
                 {/* Header */}
                 <div 
@@ -537,9 +534,9 @@ export default function Settings() {
                             <Palette size={16} className="text-primary" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold text-text">Appearance</h2>
+                            <h2 className="text-sm font-semibold text-text">Settings</h2>
                             <p className="text-[11px] text-text-muted/60">
-                                Customize your editor's look and feel
+                                Customize your editor
                             </p>
                         </div>
                     </div>
@@ -551,296 +548,379 @@ export default function Settings() {
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto">
-                    {/* If editing a theme */}
-                    {editingTheme && editColors ? (
-                        <div className="p-6">
-                            {/* Back + Title */}
-                            <div className="flex items-center gap-3 mb-6">
-                                <button
-                                    onClick={handleCancelEdit}
-                                    className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
-                                >
-                                    <RotateCcw size={14} className="text-text-muted" />
-                                </button>
-                                <div className="flex-1">
-                                    <input
-                                        type="text"
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        disabled={!editingTheme.isCustom && !isCreatingNew}
-                                        className={cn(
-                                            "text-sm font-semibold bg-transparent text-text border-none outline-none w-full",
-                                            (editingTheme.isCustom || isCreatingNew) &&
-                                            "border-b border-border/40 focus:border-primary/40 pb-0.5"
+                {/* Content with Sidebar */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Sidebar Navigation */}
+                    <div className="w-48 border-r border-border bg-surface/20 p-3 overflow-y-auto">
+                        <nav className="space-y-1">
+                            <button
+                                onClick={() => {
+                                    setActiveSection("appearance");
+                                    if (editingTheme) handleCancelEdit();
+                                }}
+                                className={cn(
+                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
+                                    activeSection === "appearance"
+                                        ? "bg-primary/15 text-primary border border-primary/20"
+                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
+                                )}
+                            >
+                                <Palette size={14} />
+                                <span>Appearance</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setActiveSection("filename");
+                                    if (editingTheme) handleCancelEdit();
+                                }}
+                                className={cn(
+                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
+                                    activeSection === "filename"
+                                        ? "bg-primary/15 text-primary border border-primary/20"
+                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
+                                )}
+                            >
+                                <FileText size={14} />
+                                <span>Default File Name</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setActiveSection("vim");
+                                    if (editingTheme) handleCancelEdit();
+                                }}
+                                className={cn(
+                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
+                                    activeSection === "vim"
+                                        ? "bg-primary/15 text-primary border border-primary/20"
+                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
+                                )}
+                            >
+                                <span className="text-sm font-mono">{"</>"}</span>
+                                <span>Vim Mode</span>
+                            </button>
+                        </nav>
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className="flex-1 overflow-y-auto">
+                        {/* Appearance Section */}
+                        {activeSection === "appearance" && (
+                            <>
+                                {/* If editing a theme */}
+                                {editingTheme && editColors ? (
+                                    <div className="p-6">
+                                        {/* Back + Title */}
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <button
+                                                onClick={handleCancelEdit}
+                                                className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+                                            >
+                                                <RotateCcw size={14} className="text-text-muted" />
+                                            </button>
+                                            <div className="flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={editName}
+                                                    onChange={(e) => setEditName(e.target.value)}
+                                                    disabled={!editingTheme.isCustom && !isCreatingNew}
+                                                    className={cn(
+                                                        "text-sm font-semibold bg-transparent text-text border-none outline-none w-full",
+                                                        (editingTheme.isCustom || isCreatingNew) &&
+                                                        "border-b border-border/40 focus:border-primary/40 pb-0.5"
+                                                    )}
+                                                    placeholder="Theme name..."
+                                                />
+                                                <p className="text-[10px] text-text-muted/50 mt-0.5">
+                                                    {isCreatingNew
+                                                        ? "Creating new custom theme"
+                                                        : editingTheme.isCustom
+                                                            ? "Editing custom theme"
+                                                            : "Preview only — duplicate to customize"}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Live Preview */}
+                                        <div className="mb-6">
+                                            <div
+                                                className="rounded-xl overflow-hidden border border-border/50 h-[120px] relative"
+                                                style={{ backgroundColor: editColors.background }}
+                                            >
+                                                {/* Sidebar */}
+                                                <div
+                                                    className="absolute left-0 top-0 bottom-0 w-[28%]"
+                                                    style={{
+                                                        backgroundColor: editColors.sidebar,
+                                                        borderRight: `1px solid ${editColors.border}`,
+                                                    }}
+                                                >
+                                                    <div className="pt-4 px-2 space-y-1.5">
+                                                        <div
+                                                            className="h-2 rounded"
+                                                            style={{
+                                                                backgroundColor: editColors.primary,
+                                                                opacity: 0.7,
+                                                                width: "60%",
+                                                            }}
+                                                        />
+                                                        {[65, 80, 50, 70].map((w, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="h-1.5 rounded"
+                                                                style={{
+                                                                    backgroundColor: editColors.textMuted,
+                                                                    opacity: 0.25,
+                                                                    width: `${w}%`,
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Editor area */}
+                                                <div className="absolute left-[28%] top-0 right-0 bottom-0 p-3">
+                                                    {/* Tab bar */}
+                                                    <div
+                                                        className="flex items-center gap-1 mb-3 pb-1.5"
+                                                        style={{ borderBottom: `1px solid ${editColors.border}` }}
+                                                    >
+                                                        <div
+                                                            className="px-3 py-1 rounded-t text-[8px] font-medium"
+                                                            style={{
+                                                                backgroundColor: editColors.surface,
+                                                                color: editColors.text,
+                                                                borderTop: `2px solid ${editColors.primary}`,
+                                                            }}
+                                                        >
+                                                            document.jt
+                                                        </div>
+                                                    </div>
+                                                    {/* Text lines */}
+                                                    <div className="space-y-2">
+                                                        {[
+                                                            { w: "40%", c: editColors.primary, o: 0.8 },
+                                                            { w: "90%", c: editColors.text, o: 0.4 },
+                                                            { w: "70%", c: editColors.text, o: 0.3 },
+                                                            { w: "55%", c: editColors.textMuted, o: 0.2 },
+                                                        ].map((line, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="h-1.5 rounded-full"
+                                                                style={{
+                                                                    backgroundColor: line.c,
+                                                                    opacity: line.o,
+                                                                    width: line.w,
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Status bar */}
+                                                <div
+                                                    className="absolute bottom-0 left-0 right-0 h-5"
+                                                    style={{
+                                                        backgroundColor: editColors.surface,
+                                                        borderTop: `1px solid ${editColors.border}`,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Color editors */}
+                                        <div className="space-y-0.5">
+                                            <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase mb-3">
+                                                Color Palette
+                                            </h3>
+                                            <div className="rounded-xl bg-surface/30 border border-border/30 divide-y divide-border/20">
+                                                {COLOR_LABELS.map(({ key, label, description }) => (
+                                                    <ColorRow
+                                                        key={key}
+                                                        label={label}
+                                                        description={description}
+                                                        color={editColors[key]}
+                                                        onChange={(val) => handleColorChange(key, val)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        {(editingTheme.isCustom || isCreatingNew) && (
+                                            <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border/30">
+                                                <button
+                                                    onClick={handleCancelEdit}
+                                                    className="px-4 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleSaveCustomTheme}
+                                                    className="px-5 py-2 text-xs font-semibold bg-primary text-background rounded-lg hover:opacity-90 transition-all shadow-sm shadow-primary/20 flex items-center gap-1.5"
+                                                >
+                                                    <Check size={12} />
+                                                    {isCreatingNew ? "Create Theme" : "Save Changes"}
+                                                </button>
+                                            </div>
                                         )}
-                                        placeholder="Theme name..."
-                                    />
-                                    <p className="text-[10px] text-text-muted/50 mt-0.5">
-                                        {isCreatingNew
-                                            ? "Creating new custom theme"
-                                            : editingTheme.isCustom
-                                                ? "Editing custom theme"
-                                                : "Preview only — duplicate to customize"}
+
+                                        {/* For preset themes: offer a duplicate button */}
+                                        {!editingTheme.isCustom && !isCreatingNew && (
+                                            <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border/30">
+                                                <button
+                                                    onClick={handleCancelEdit}
+                                                    className="px-4 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
+                                                >
+                                                    Back
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        handleDuplicateTheme(editingTheme);
+                                                        handleCancelEdit();
+                                                    }}
+                                                    className="px-5 py-2 text-xs font-semibold bg-primary/15 text-primary border border-primary/20 rounded-lg hover:bg-primary/25 transition-all flex items-center gap-1.5"
+                                                >
+                                                    <Copy size={12} />
+                                                    Duplicate & Customize
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    /* Theme gallery view */
+                                    <div className="p-6">
+                                        {/* Section: Preset Themes */}
+                                        <div className="mb-8">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Sparkles size={14} className="text-primary" />
+                                                <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
+                                                    Built-in Themes
+                                                </h3>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {PRESET_THEMES.map((theme) => (
+                                                    <ThemePreviewCard
+                                                        key={theme.id}
+                                                        theme={theme}
+                                                        isActive={activeThemeId === theme.id}
+                                                        onClick={() => handleSelectTheme(theme)}
+                                                        onDuplicate={() => handleDuplicateTheme(theme)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Section: Custom Themes */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Palette size={14} className="text-primary" />
+                                                    <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
+                                                        Custom Themes
+                                                    </h3>
+                                                </div>
+                                                <button
+                                                    onClick={handleCreateNew}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-all"
+                                                >
+                                                    <Plus size={12} />
+                                                    New Theme
+                                                </button>
+                                            </div>
+
+                                            {customThemes.length > 0 ? (
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {customThemes.map((theme) => (
+                                                        <div key={theme.id} className="relative group">
+                                                            <ThemePreviewCard
+                                                                theme={theme}
+                                                                isActive={activeThemeId === theme.id}
+                                                                onClick={() => handleSelectTheme(theme)}
+                                                                onDelete={() => handleDeleteCustomTheme(theme.id)}
+                                                                onDuplicate={() => handleDuplicateTheme(theme)}
+                                                            />
+                                                            {/* Edit overlay */}
+                                                            <button
+                                                                onClick={() => handleEditTheme(theme)}
+                                                                className="absolute bottom-8 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-surface border border-border rounded-md hover:bg-surface-hover transition-all shadow-sm"
+                                                                title="Edit theme"
+                                                            >
+                                                                <Pencil size={10} className="text-text-muted" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-10 px-6 rounded-xl border border-dashed border-border/50 bg-surface/10">
+                                                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                        <Palette size={20} className="text-primary/60" />
+                                                    </div>
+                                                    <p className="text-xs text-text-muted/60 mb-1">
+                                                        No custom themes yet
+                                                    </p>
+                                                    <p className="text-[10px] text-text-muted/40">
+                                                        Create your own or duplicate a preset to get started
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Tip about editing presets */}
+                                        <div className="mt-6 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                            <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
+                                            <p className="text-[10px] text-text-muted/60 leading-relaxed">
+                                                <span className="text-text-muted/80 font-medium">Tip:</span> Click any theme to
+                                                apply it instantly. Hover to see options. Duplicate a preset to create an
+                                                editable copy with custom colors.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Default File Name Section */}
+                        {activeSection === "filename" && (
+                            <div className="p-6">
+                                <div className="mb-6">
+                                    <h3 className="text-sm font-semibold text-text mb-2">Default File Name</h3>
+                                    <p className="text-xs text-text-muted/60">
+                                        Configure the default prefix for new files
+                                    </p>
+                                </div>
+                                <div className="rounded-xl bg-surface/30 border border-border/30 p-6">
+                                    <FileNamePrefixSetting />
+                                </div>
+                                <div className="mt-4 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                    <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
+                                    <p className="text-[10px] text-text-muted/60 leading-relaxed">
+                                        <span className="text-text-muted/80 font-medium">Note:</span> New files will be named with this prefix followed by a timestamp (e.g., "note-123.jt")
                                     </p>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Live Preview */}
-                            <div className="mb-6">
-                                <div
-                                    className="rounded-xl overflow-hidden border border-border/50 h-[120px] relative"
-                                    style={{ backgroundColor: editColors.background }}
-                                >
-                                    {/* Sidebar */}
-                                    <div
-                                        className="absolute left-0 top-0 bottom-0 w-[28%]"
-                                        style={{
-                                            backgroundColor: editColors.sidebar,
-                                            borderRight: `1px solid ${editColors.border}`,
-                                        }}
-                                    >
-                                        <div className="pt-4 px-2 space-y-1.5">
-                                            <div
-                                                className="h-2 rounded"
-                                                style={{
-                                                    backgroundColor: editColors.primary,
-                                                    opacity: 0.7,
-                                                    width: "60%",
-                                                }}
-                                            />
-                                            {[65, 80, 50, 70].map((w, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="h-1.5 rounded"
-                                                    style={{
-                                                        backgroundColor: editColors.textMuted,
-                                                        opacity: 0.25,
-                                                        width: `${w}%`,
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Editor area */}
-                                    <div className="absolute left-[28%] top-0 right-0 bottom-0 p-3">
-                                        {/* Tab bar */}
-                                        <div
-                                            className="flex items-center gap-1 mb-3 pb-1.5"
-                                            style={{ borderBottom: `1px solid ${editColors.border}` }}
-                                        >
-                                            <div
-                                                className="px-3 py-1 rounded-t text-[8px] font-medium"
-                                                style={{
-                                                    backgroundColor: editColors.surface,
-                                                    color: editColors.text,
-                                                    borderTop: `2px solid ${editColors.primary}`,
-                                                }}
-                                            >
-                                                document.jt
-                                            </div>
-                                        </div>
-                                        {/* Text lines */}
-                                        <div className="space-y-2">
-                                            {[
-                                                { w: "40%", c: editColors.primary, o: 0.8 },
-                                                { w: "90%", c: editColors.text, o: 0.4 },
-                                                { w: "70%", c: editColors.text, o: 0.3 },
-                                                { w: "55%", c: editColors.textMuted, o: 0.2 },
-                                            ].map((line, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="h-1.5 rounded-full"
-                                                    style={{
-                                                        backgroundColor: line.c,
-                                                        opacity: line.o,
-                                                        width: line.w,
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Status bar */}
-                                    <div
-                                        className="absolute bottom-0 left-0 right-0 h-5"
-                                        style={{
-                                            backgroundColor: editColors.surface,
-                                            borderTop: `1px solid ${editColors.border}`,
-                                        }}
-                                    />
+                        {/* Vim Mode Section */}
+                        {activeSection === "vim" && (
+                            <div className="p-6">
+                                <div className="mb-6">
+                                    <h3 className="text-sm font-semibold text-text mb-2">Vim Mode</h3>
+                                    <p className="text-xs text-text-muted/60">
+                                        Enable vim keybindings for navigation and editing
+                                    </p>
+                                </div>
+                                <div className="rounded-xl bg-surface/30 border border-border/30 p-6">
+                                    <VimModeSetting />
+                                </div>
+                                <div className="mt-4 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                    <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
+                                    <p className="text-[10px] text-text-muted/60 leading-relaxed">
+                                        <span className="text-text-muted/80 font-medium">Tip:</span> When enabled, you can use vim keybindings like hjkl for navigation, i for insert mode, and ESC to return to normal mode.
+                                    </p>
                                 </div>
                             </div>
-
-                            {/* Color editors */}
-                            <div className="space-y-0.5">
-                                <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase mb-3">
-                                    Color Palette
-                                </h3>
-                                <div className="rounded-xl bg-surface/30 border border-border/30 divide-y divide-border/20">
-                                    {COLOR_LABELS.map(({ key, label, description }) => (
-                                        <ColorRow
-                                            key={key}
-                                            label={label}
-                                            description={description}
-                                            color={editColors[key]}
-                                            onChange={(val) => handleColorChange(key, val)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Action buttons */}
-                            {(editingTheme.isCustom || isCreatingNew) && (
-                                <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border/30">
-                                    <button
-                                        onClick={handleCancelEdit}
-                                        className="px-4 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleSaveCustomTheme}
-                                        className="px-5 py-2 text-xs font-semibold bg-primary text-background rounded-lg hover:opacity-90 transition-all shadow-sm shadow-primary/20 flex items-center gap-1.5"
-                                    >
-                                        <Check size={12} />
-                                        {isCreatingNew ? "Create Theme" : "Save Changes"}
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* For preset themes: offer a duplicate button */}
-                            {!editingTheme.isCustom && !isCreatingNew && (
-                                <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border/30">
-                                    <button
-                                        onClick={handleCancelEdit}
-                                        className="px-4 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-hover rounded-lg transition-all"
-                                    >
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            handleDuplicateTheme(editingTheme);
-                                            handleCancelEdit();
-                                        }}
-                                        className="px-5 py-2 text-xs font-semibold bg-primary/15 text-primary border border-primary/20 rounded-lg hover:bg-primary/25 transition-all flex items-center gap-1.5"
-                                    >
-                                        <Copy size={12} />
-                                        Duplicate & Customize
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        /* Theme gallery view */
-                        <div className="p-6">
-                            {/* Section: Preset Themes */}
-                            <div className="mb-8">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Sparkles size={14} className="text-primary" />
-                                    <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
-                                        Built-in Themes
-                                    </h3>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {PRESET_THEMES.map((theme) => (
-                                        <ThemePreviewCard
-                                            key={theme.id}
-                                            theme={theme}
-                                            isActive={activeThemeId === theme.id}
-                                            onClick={() => handleSelectTheme(theme)}
-                                            onDuplicate={() => handleDuplicateTheme(theme)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section: Custom Themes */}
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <Palette size={14} className="text-primary" />
-                                        <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
-                                            Custom Themes
-                                        </h3>
-                                    </div>
-                                    <button
-                                        onClick={handleCreateNew}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-all"
-                                    >
-                                        <Plus size={12} />
-                                        New Theme
-                                    </button>
-                                </div>
-
-                                {customThemes.length > 0 ? (
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {customThemes.map((theme) => (
-                                            <div key={theme.id} className="relative group">
-                                                <ThemePreviewCard
-                                                    theme={theme}
-                                                    isActive={activeThemeId === theme.id}
-                                                    onClick={() => handleSelectTheme(theme)}
-                                                    onDelete={() => handleDeleteCustomTheme(theme.id)}
-                                                    onDuplicate={() => handleDuplicateTheme(theme)}
-                                                />
-                                                {/* Edit overlay */}
-                                                <button
-                                                    onClick={() => handleEditTheme(theme)}
-                                                    className="absolute bottom-8 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-surface border border-border rounded-md hover:bg-surface-hover transition-all shadow-sm"
-                                                    title="Edit theme"
-                                                >
-                                                    <Pencil size={10} className="text-text-muted" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-10 px-6 rounded-xl border border-dashed border-border/50 bg-surface/10">
-                                        <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-primary/10 flex items-center justify-center">
-                                            <Palette size={20} className="text-primary/60" />
-                                        </div>
-                                        <p className="text-xs text-text-muted/60 mb-1">
-                                            No custom themes yet
-                                        </p>
-                                        <p className="text-[10px] text-text-muted/40">
-                                            Create your own or duplicate a preset to get started
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Tip about editing presets */}
-                            <div className="mt-6 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
-                                <p className="text-[10px] text-text-muted/60 leading-relaxed">
-                                    <span className="text-text-muted/80 font-medium">Tip:</span> Click any theme to
-                                    apply it instantly. Hover to see options. Duplicate a preset to create an
-                                    editable copy with custom colors.
-                                </p>
-                            </div>
-
-                            {/* File Settings Section */}
-                            <div className="mt-8">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <FileText size={14} className="text-primary" />
-                                    <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
-                                        Editor Settings
-                                    </h3>
-                                </div>
-                                <div className="rounded-xl bg-surface/30 border border-border/30 divide-y divide-border/20">
-                                    <div className="p-4">
-                                        <FileNamePrefixSetting />
-                                    </div>
-                                    <div className="p-4">
-                                        <VimModeSetting />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
