@@ -329,7 +329,7 @@ function VimModeSetting() {
     return (
         <div className="flex items-center justify-between">
             <div className="flex-1">
-                <div className="text-xs font-medium text-text mb-1">Vim Mode</div>
+                <div className="text-xs font-medium text-text mb-1">Vim Mode (BETA)</div>
                 <div className="text-[10px] text-text-muted/60 leading-tight">
                     Enable vim keybindings for navigation and editing
                 </div>
@@ -904,7 +904,7 @@ export default function Settings() {
                         {activeSection === "vim" && (
                             <div className="p-6">
                                 <div className="mb-6">
-                                    <h3 className="text-sm font-semibold text-text mb-2">Vim Mode</h3>
+                                    <h3 className="text-sm font-semibold text-text mb-2">Vim Mode (BETA)</h3>
                                     <p className="text-xs text-text-muted/60">
                                         Enable vim keybindings for navigation and editing
                                     </p>
@@ -912,11 +912,42 @@ export default function Settings() {
                                 <div className="rounded-xl bg-surface/30 border border-border/30 p-6">
                                     <VimModeSetting />
                                 </div>
-                                <div className="mt-4 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                    <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
-                                    <p className="text-[10px] text-text-muted/60 leading-relaxed">
-                                        <span className="text-text-muted/80 font-medium">Tip:</span> When enabled, you can use vim keybindings like hjkl for navigation, i for insert mode, and ESC to return to normal mode.
-                                    </p>
+                                <div className="mt-4 space-y-3">
+                                    <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                        <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
+                                        <p className="text-[10px] text-text-muted/60 leading-relaxed">
+                                            <span className="text-text-muted/80 font-medium">Tip:</span> When enabled, you can use vim keybindings like hjkl for navigation, i for insert mode, and ESC to return to normal mode.
+                                        </p>
+                                    </div>
+                                    <div className="rounded-lg bg-surface/30 border border-border/30 p-4">
+                                        <h4 className="text-[11px] font-semibold text-text mb-3">Common Vim Commands</h4>
+                                        <div className="space-y-2 text-[10px]">
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">:%y+</code>
+                                                <span className="text-text-muted/70">Copy entire file content to clipboard</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">dd</code>
+                                                <span className="text-text-muted/70">Delete current line</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">yy</code>
+                                                <span className="text-text-muted/70">Copy current line</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">p</code>
+                                                <span className="text-text-muted/70">Paste after cursor</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">u</code>
+                                                <span className="text-text-muted/70">Undo last change</span>
+                                            </div>
+                                            <div className="flex items-start gap-2">
+                                                <code className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">Ctrl+r</code>
+                                                <span className="text-text-muted/70">Redo</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}

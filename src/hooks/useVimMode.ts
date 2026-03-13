@@ -87,7 +87,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
             // NORMAL mode - vim keybindings
             if (state.mode === "NORMAL") {
                 // Check if this is a vim command key - if so, prevent default
-                const isVimKey = /^[hjklwbeioxaAIOgGdunN0\$\^\/:]$/.test(e.key) || 
+                const isVimKey = /^[hjklwbeioxaAIOgGduyynNpP0\$\^\/:]$/.test(e.key) || 
                                  (e.ctrlKey && e.key === 'r') ||
                                  e.key === 'Escape';
                 
@@ -332,6 +332,49 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     return;
                 }
 
+                // Yank (copy)
+                if (e.key === "y") {
+                    if (state.commandBuffer === "y") {
+                        // yy - yank (copy) line
+                        const yankedText = yankLine(editor);
+                        updateState(prev => ({ ...prev, yankBuffer: yankedText, commandBuffer: "", count: "" }));
+                        console.log("Yanked line:", yankedText);
+                    } else {
+                        updateState(prev => ({ ...prev, commandBuffer: "y" }));
+                        setTimeout(() => {
+                            if (stateRef.current.commandBuffer === "y") {
+                                updateState(prev => ({ ...prev, commandBuffer: "" }));
+                            }
+                        }, 1000);
+                    }
+                    return;
+                }
+
+                // Paste
+                if (e.key === "p") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Try to paste from system clipboard first, fallback to yank buffer
+                    navigator.clipboard.readText()
+                        .then(text => {
+                            if (text) {
+                                paste(editor, text);
+                            } else if (state.yankBuffer) {
+                                paste(editor, state.yankBuffer);
+                            }
+                        })
+                        .catch((err) => {
+                            console.log("Clipboard read failed, using yank buffer:", err);
+                            // Fallback to yank buffer if clipboard access fails
+                            if (state.yankBuffer) {
+                                paste(editor, state.yankBuffer);
+                            }
+                        });
+                    updateState(prev => ({ ...prev, count: "" }));
+                    return;
+                }
+
                 // Undo/Redo
                 if (e.key === "u") {
                     for (let i = 0; i < count; i++) {
@@ -414,6 +457,14 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
                     }));
                 });
             }
+        } else if (cmd === "%y+" || cmd === "%y +") {
+            // Copy entire file to clipboard
+            const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n");
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("Copied entire file to clipboard");
+            }).catch(err => {
+                console.error("Failed to copy to clipboard:", err);
+            });
         } else if (cmd === "w" || cmd === "write") {
             // Save (already auto-saves)
             console.log("File saved");
@@ -563,6 +614,53 @@ function deleteLine(editor: Editor) {
     // Perform the deletion
     const tr = state.tr.delete(deleteFrom, deleteTo);
     editor.view.dispatch(tr);
+}
+
+function yankLine(editor: Editor): string {
+    const { state } = editor;
+    const { $from } = state.selection;
+    
+    // Get the current line boundaries
+    const lineStart = $from.start();
+    const lineEnd = $from.end();
+    
+    // Extract the line text
+    const lineText = state.doc.textBetween(lineStart, lineEnd, "\n");
+    
+    // Also copy to system clipboard
+    navigator.clipboard.writeText(lineText).catch(err => {
+        console.error("Failed to copy to clipboard:", err);
+    });
+    
+    return lineText;
+}
+
+function paste(editor: Editor, text: string) {
+    const { state } = editor;
+    const { from } = state.selection;
+    
+    // Check if the text contains newlines (multi-line paste)
+    const hasNewlines = text.includes("\n");
+    
+    if (hasNewlines) {
+        // Multi-line paste: insert after current line
+        const { $from } = state.selection;
+        const lineEnd = $from.end();
+        
+        // Insert newline and then the text
+        const tr = state.tr.insertText("\n" + text, lineEnd);
+        editor.view.dispatch(tr);
+        
+        // Move cursor to the start of pasted text
+        editor.commands.setTextSelection(lineEnd + 1);
+    } else {
+        // Single line paste: insert after cursor
+        const tr = state.tr.insertText(text, from + 1);
+        editor.view.dispatch(tr);
+        
+        // Move cursor to after the pasted text
+        editor.commands.setTextSelection(from + 1);
+    }
 }
 
 function getAllMatches(editor: Editor, term: string): number[] {
