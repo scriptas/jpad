@@ -50,22 +50,7 @@ export default function StatusBar() {
                 <span>Cloud comming soon</span>
             </div>
 
-            <div className="w-[1px] h-2.5 bg-border" />
 
-            {/* Save Status */}
-            <div className="flex items-center gap-1.5">
-                {isSaving ? (
-                    <>
-                        <Loader2 size={11} className="animate-spin text-primary" />
-                        <span className="text-primary">Saving...</span>
-                    </>
-                ) : (
-                    <>
-                        <Check size={11} className="text-green-400" />
-                        <span className="opacity-90">Saved</span>
-                    </>
-                )}
-            </div>
 
             {/* Spacer */}
             <div className="flex-1" />
