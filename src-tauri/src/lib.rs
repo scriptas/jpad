@@ -414,7 +414,13 @@ pub fn run() {
             // Show window after a brief delay to allow React to render
             let window_clone = window.clone();
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                
+                // Linux fix: Setting window title to empty helps remove the "corner icon" 
+                // artifact on some GNOME/GTK versions when decorations are disabled.
+                #[cfg(target_os = "linux")]
+                let _ = window_clone.set_title("");
+                
                 let _ = window_clone.show();
             });
             
@@ -452,9 +458,11 @@ pub fn run() {
                 .separator()
                 .item(&quit)
                 .build()?;
-            
+
+            let tray_icon = app.default_window_icon().unwrap().clone();
+
             let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "quit" => {
