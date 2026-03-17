@@ -8,6 +8,13 @@ echo "🚀 Building JPad for production..."
 echo "Platform: $(uname -s)"
 echo ""
 
+# Ensure Node 22 is used
+NVM_NODE_22="/home/antanas/.nvm/versions/node/v22.22.1/bin"
+if [ -d "$NVM_NODE_22" ]; then
+    echo "🟢 Found Node 22 at $NVM_NODE_22"
+    export PATH="$NVM_NODE_22:$PATH"
+fi
+
 # Clean previous builds
 echo "🧹 Cleaning previous builds..."
 rm -rf dist
