@@ -29,6 +29,9 @@ This is a v1.0 version. With v2, I plan to add:
   <img src="https://github.com/user-attachments/assets/3ae0ffe9-6218-486c-ae07-16037462962d" height="48" alt="Windows" />
   <img src="https://github.com/user-attachments/assets/7f8025f0-b5e8-42a5-b529-7a884faf12cf" height="48" alt="macOS" />
   <img src="https://github.com/user-attachments/assets/e99545cc-c018-483d-ad3c-4f51e0b3d940" height="48" alt="Linux" />
+  <img src="https://github.com/user-attachments/assets/99401665-57ac-4811-9c8f-8e2eb4494cca" height="48" alt="ios" />
+  <img src="https://github.com/user-attachments/assets/6b73bca4-f8c8-447f-a0e8-eef3b19f0476" height="48" alt="android" />
+
 </div>
 
 
