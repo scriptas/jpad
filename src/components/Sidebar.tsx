@@ -563,14 +563,14 @@ export default function Sidebar() {
 
     return (
         <aside 
-            className="w-full h-full flex flex-col border-r border-border bg-sidebar" 
+            className="w-full h-full flex flex-col border-r-2 border-border bg-sidebar" 
             tabIndex={0}
             onFocus={() => {
                 // Ensure sidebar can receive keyboard events
             }}
         >
             {/* Sidebar Header */}
-            <div className="flex items-center px-3 py-2.5 border-b border-border bg-sidebar/80 backdrop-blur-sm">
+            <div className="flex items-center px-3 py-2.5 border-b-2 border-border bg-sidebar/80 backdrop-blur-sm">
                 <button
                     onClick={toggleSidebar}
                     title="Collapse Sidebar"
@@ -695,7 +695,7 @@ export default function Sidebar() {
             </div>
 
             {/* Bottom Toolbar */}
-            <div className="px-3 py-2.5 border-t border-border bg-sidebar/50 flex items-center justify-between">
+            <div className="px-3 py-2.5 border-t-2 border-border bg-sidebar/50 flex items-center justify-between">
                 <button
                     onClick={() => useThemeStore.getState().toggleSettings()}
                     title="Appearance Settings"

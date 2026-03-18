@@ -136,9 +136,9 @@ function ColorPicker({
     return (
         <div
             ref={ref}
-            className="absolute top-full left-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-xl shadow-black/40 animate-in"
+            className="absolute top-full left-0 mt-1 z-50 bg-surface border-2 border-border rounded-lg shadow-xl shadow-black/40 animate-in"
         >
-            <div className="px-3 py-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-wider border-b border-border">
+            <div className="px-3 py-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-wider border-b-2 border-border">
                 {label}
             </div>
             <div className="color-picker-grid">
@@ -643,7 +643,7 @@ export default function Editor() {
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-surface/30 backdrop-blur-sm sticky top-0 z-10 flex-wrap">
+            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/30 backdrop-blur-sm sticky top-0 z-10 flex-wrap">
                 <ToolbarButton
                     onClick={() => editor?.chain().focus().undo().run()}
                     title="Undo (Ctrl+Z)"

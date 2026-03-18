@@ -196,15 +196,13 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-full bg-background text-text overflow-hidden",
-      isMacOS && "rounded-[10px]"
+      "flex flex-col h-screen w-full bg-background text-text overflow-hidden border-2 border-border rounded-[8px]"
     )}>
       {/* Custom Title Bar */}
       <div
         ref={titleBarRef}
         className={cn(
-          "h-10 flex items-center bg-sidebar border-b border-border flex-shrink-0 select-none cursor-default",
-          isMacOS && "rounded-t-[10px]"
+          "h-10 flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default rounded-t-[8px] overflow-hidden"
         )}
       >
         {isMacOS ? (

@@ -43,7 +43,7 @@ export default function StatusBar() {
     const hasSelection = selectedContent.length > 0;
 
     return (
-        <footer className="h-[22px] bg-sidebar border-t border-border flex items-center px-3 text-[11px] text-text-muted select-none gap-3 flex-shrink-0">
+        <footer className="h-[22px] bg-sidebar border-t-2 border-border flex items-center px-3 text-[11px] text-text-muted select-none gap-3 flex-shrink-0 rounded-b-[8px]">
             {/* Sync Status */}
             <div className="flex items-center gap-1.5 hover:text-text cursor-default transition-colors">
                 <Cloud size={11} className="text-primary" />

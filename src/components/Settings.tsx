@@ -522,12 +522,12 @@ export default function Settings() {
             {/* Settings Panel */}
             <div
                 ref={panelRef}
-                className="relative z-10 w-[780px] max-h-[85vh] bg-sidebar border border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+                className="relative z-10 w-[780px] max-h-[85vh] bg-sidebar border-2 border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
             >
                 {/* Header */}
                 <div 
                     ref={headerRef}
-                    className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface/30 cursor-move"
+                    className="flex items-center justify-between px-6 py-4 border-b-2 border-border bg-surface/30 cursor-move"
                 >
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -551,7 +551,7 @@ export default function Settings() {
                 {/* Content with Sidebar */}
                 <div className="flex-1 flex overflow-hidden">
                     {/* Sidebar Navigation */}
-                    <div className="w-48 border-r border-border bg-surface/20 p-3 overflow-y-auto">
+                    <div className="w-48 border-r-2 border-border bg-surface/20 p-3 overflow-y-auto">
                         <nav className="space-y-1">
                             <button
                                 onClick={() => {
