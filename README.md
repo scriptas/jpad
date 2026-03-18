@@ -37,9 +37,8 @@ This is a v1.0 version. With v2, I plan to add:
 
 
 
-<img width="1095" height="753" alt="image" src="https://github.com/user-attachments/assets/b5e7ee29-1db0-4537-9210-0e53795b6a0b" />
-<img width="791" height="642" alt="image" src="https://github.com/user-attachments/assets/a0b5afbe-4feb-4e4f-adf4-f59c9f50e933" />
-<img width="1102" height="754" alt="image" src="https://github.com/user-attachments/assets/41b8b9f5-5616-41f6-9ffe-f7270188daa7" />
+<img height="902" src="https://github.com/user-attachments/assets/ea4eb713-4915-4beb-8bd5-09aa6a3dfa5a" height="600" alt="main app design"/>
+<img height="902" src="https://github.com/user-attachments/assets/e52322a6-8147-4e2f-882a-8abf2c4b6964" height="600" alt="settings app design"/>
 
 ## Tech Stack
 
