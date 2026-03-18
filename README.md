@@ -25,7 +25,7 @@ This is a v1.0 version. With v2, I plan to add:
 
 ---
 
-<img width="860" height="854" alt="498-4986146_linux-png-png-download-logo-linux-operating-system" src="https://github.com/user-attachments/assets/d8885748-a650-41ca-a60b-f58b518a5628" />
+<img width="840" height="1056" alt="image" src="https://github.com/user-attachments/assets/65504cb2-b917-4487-b51e-0a8e4d0bb421" />
 <img width="1024" height="1024" alt="Finder_Icon_macOS_Big_Sur" src="https://github.com/user-attachments/assets/7f8025f0-b5e8-42a5-b529-7a884faf12cf" />
 <img width="320" height="320" alt="image" src="https://github.com/user-attachments/assets/3ae0ffe9-6218-486c-ae07-16037462962d" />
 
