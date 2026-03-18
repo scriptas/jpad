@@ -25,6 +25,11 @@ This is a v1.0 version. With v2, I plan to add:
 
 ---
 
+<img width="860" height="854" alt="498-4986146_linux-png-png-download-logo-linux-operating-system" src="https://github.com/user-attachments/assets/d8885748-a650-41ca-a60b-f58b518a5628" />
+<img width="1024" height="1024" alt="Finder_Icon_macOS_Big_Sur" src="https://github.com/user-attachments/assets/7f8025f0-b5e8-42a5-b529-7a884faf12cf" />
+![pngtree-microsoft-logo-icon-png-image_3588808](https://github.com/user-attachments/assets/207a59f6-b8a9-4d09-b510-63729ef74d94)
+
+
 <img width="1095" height="753" alt="image" src="https://github.com/user-attachments/assets/b5e7ee29-1db0-4537-9210-0e53795b6a0b" />
 <img width="791" height="642" alt="image" src="https://github.com/user-attachments/assets/a0b5afbe-4feb-4e4f-adf4-f59c9f50e933" />
 <img width="1102" height="754" alt="image" src="https://github.com/user-attachments/assets/41b8b9f5-5616-41f6-9ffe-f7270188daa7" />
