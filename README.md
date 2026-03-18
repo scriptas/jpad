@@ -25,7 +25,7 @@ This is a v1.0 version. With v2, I plan to add:
 
 ---
 
-<img width="840" height="1056" alt="image" src="https://github.com/user-attachments/assets/65504cb2-b917-4487-b51e-0a8e4d0bb421" />
+<img width="1280" height="1518" alt="image" src="https://github.com/user-attachments/assets/e99545cc-c018-483d-ad3c-4f51e0b3d940" />
 <img width="1024" height="1024" alt="Finder_Icon_macOS_Big_Sur" src="https://github.com/user-attachments/assets/7f8025f0-b5e8-42a5-b529-7a884faf12cf" />
 <img width="320" height="320" alt="image" src="https://github.com/user-attachments/assets/3ae0ffe9-6218-486c-ae07-16037462962d" />
 
