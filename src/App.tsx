@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useThemeStore, initializeTheme } from "./store/useThemeStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import Settings from "./components/Settings";
@@ -23,8 +22,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const appWindow = getCurrentWindow();
-
 export default function App() {
   const { sidebarVisible, toggleSidebar, refreshFiles, activeFileId, files } =
     useStore();
@@ -34,6 +31,8 @@ export default function App() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
   const [isLinux, setIsLinux] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const appWindowRef = useRef<any>(null);
 
   const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
@@ -43,6 +42,15 @@ export default function App() {
     const p = platform();
     setIsMacOS(p === "macos");
     setIsLinux(p === "linux");
+    const mobile = p === "android" || p === "ios";
+    setIsMobile(mobile);
+
+    if (!mobile) {
+      import("@tauri-apps/api/window").then((m) => {
+        appWindowRef.current = m.getCurrentWindow();
+        m.getCurrentWindow().isMaximized().then(setIsMaximized).catch(() => { });
+      });
+    }
 
     // Periodic file system refresh to detect external changes
     const refreshInterval = setInterval(() => {
@@ -63,17 +71,26 @@ export default function App() {
 
   // Listen for maximize/unmaximize
   useEffect(() => {
+    if (isMobile) return;
+
     let unlisten: (() => void) | undefined;
     (async () => {
-      setIsMaximized(await appWindow.isMaximized());
-      unlisten = await appWindow.onResized(async () => {
-        setIsMaximized(await appWindow.isMaximized());
-      });
+      const checkAndListen = async () => {
+        if (appWindowRef.current) {
+          setIsMaximized(await appWindowRef.current.isMaximized());
+          unlisten = await appWindowRef.current.onResized(async () => {
+            setIsMaximized(await appWindowRef.current.isMaximized());
+          });
+        } else if (!isMobile) {
+          setTimeout(checkAndListen, 500);
+        }
+      };
+      checkAndListen();
     })();
     return () => {
       unlisten?.();
     };
-  }, []);
+  }, [isMobile]);
 
   // ── Sidebar resize via document-level listeners ──
   const isResizingRef = useRef(false);
@@ -111,6 +128,7 @@ export default function App() {
   const titleBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isMobile) return;
     const el = titleBarRef.current;
     if (!el) return;
 
@@ -122,22 +140,20 @@ export default function App() {
 
       if (e.detail === 2) {
         // Double-click → maximize/restore
-        appWindow.toggleMaximize();
+        appWindowRef.current?.toggleMaximize();
       } else {
         // Single click → start dragging
-        appWindow.startDragging();
+        appWindowRef.current?.startDragging();
       }
     };
 
     el.addEventListener("mousedown", onMouseDown);
     return () => el.removeEventListener("mousedown", onMouseDown);
-  }, []);
+  }, [isMobile]);
 
   // ── Global Navigation Prevention ──
-  // Blocks mouse side-buttons and Alt+Arrows to prevent navigating away from the SPA state
   useEffect(() => {
     const handleNavigation = (e: MouseEvent | KeyboardEvent) => {
-      // Determine if it is a back/forward navigation attempt
       const isBack =
         (e instanceof MouseEvent && e.button === 3) ||
         (e instanceof KeyboardEvent &&
@@ -149,22 +165,12 @@ export default function App() {
           ((e.altKey && e.key === "ArrowRight") || e.key === "BrowserForward"));
 
       if (isBack || isForward) {
-        // Find if we are currently in an input/editor context
         const isEditing = document.activeElement?.closest(".jpad-editor") ||
           ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
 
-        // If it's a back button and we are editing, we want to allow the event 
-        // to propagate so the editor can handle it as 'undo' if we implement it there,
-        // OR we just prevent default here and trigger undo manually.
-
-        // For now, prevent the default navigation behavior (exiting window/going back in history)
         e.preventDefault();
 
-        // If it's back and we're editing, dispatch a custom undo if it's the editor
         if (isBack && isEditing) {
-          // If it's a mouse button, the editor won't see it as a keyboard undo,
-          // so we could manually trigger undo if we have a way.
-          // Since Editor is a separate component, let's use a custom event.
           window.dispatchEvent(new CustomEvent("jpad-undo"));
         }
       }
@@ -200,37 +206,54 @@ export default function App() {
   return (
     <div className={cn(
       "flex flex-col h-screen w-full bg-background text-text overflow-hidden border-2 border-border",
-      isMacOS ? "rounded-[10px]" : isLinux ? "rounded-none" : "rounded-[8px]"
+      isMacOS ? "rounded-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-[8px]"
     )}>
       {/* Custom Title Bar */}
       <div
         ref={titleBarRef}
         className={cn(
           "h-10 flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default overflow-hidden",
-          isMacOS ? "rounded-t-[10px]" : isLinux ? "rounded-none" : "rounded-t-[8px]"
+          isMacOS ? "rounded-t-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-t-[8px]"
         )}
       >
-        {isMacOS ? (
+        {isMobile ? (
+          // Mobile layout: simple branding
+          <>
+            <div className="flex items-center gap-2 px-4 h-full flex-1">
+              <NeonIcon size={24} />
+              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+                JPad
+              </span>
+            </div>
+            {/* Center: File Name (smaller on mobile) */}
+            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none pr-4">
+              {activeFile && (
+                <span className="text-[10px] text-text/30 font-medium truncate max-w-[150px] tracking-wider uppercase">
+                  {activeFile.name}
+                </span>
+              )}
+            </div>
+          </>
+        ) : isMacOS ? (
           // macOS layout: traffic light buttons (left) | icon + text | filename (center) | empty (right)
           <>
-            {/* Left: macOS-style traffic light buttons */}
             <div className="flex items-center gap-2 pl-3 pr-3 h-full flex-shrink-0">
               <button
-                onClick={() => appWindow.close()}
+                onClick={() => appWindowRef.current?.close()}
                 className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 transition-colors flex items-center justify-center group"
                 title="Close"
               >
                 <X size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
               </button>
               <button
-                onClick={() => appWindow.minimize()}
+                onClick={() => appWindowRef.current?.minimize()}
                 className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#febc2e]/80 transition-colors flex items-center justify-center group"
                 title="Minimize"
               >
                 <Minus size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
               </button>
               <button
-                onClick={() => appWindow.toggleMaximize()}
+                onClick={() => appWindowRef.current?.toggleMaximize()}
                 className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#28c840]/80 transition-colors flex items-center justify-center group"
                 title="Maximize"
               >
@@ -238,7 +261,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Left-Center: App Branding */}
             <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
               <NeonIcon size={32} />
               <span className="text-[11px] font-bold tracking-wide text-text uppercase">
@@ -246,7 +268,6 @@ export default function App() {
               </span>
             </div>
 
-            {/* Center: File Name */}
             <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
               {activeFile && (
                 <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
@@ -255,13 +276,11 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Empty space for symmetry */}
             <div className="w-[140px] flex-shrink-0" />
           </>
         ) : (
           // Windows/Linux layout: icon + text (left) | filename (center) | window controls (right)
           <>
-            {/* Left: App Branding */}
             <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
               <NeonIcon size={32} />
               <span className="text-[11px] font-bold tracking-wide text-text uppercase">
@@ -269,7 +288,6 @@ export default function App() {
               </span>
             </div>
 
-            {/* Center: File Name */}
             <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
               {activeFile && (
                 <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
@@ -278,16 +296,15 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Window Controls */}
             <div className="flex items-center h-full flex-shrink-0">
               <button
-                onClick={() => appWindow.minimize()}
+                onClick={() => appWindowRef.current?.minimize()}
                 className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
               >
                 <Minus size={14} className="opacity-90" />
               </button>
               <button
-                onClick={() => appWindow.toggleMaximize()}
+                onClick={() => appWindowRef.current?.toggleMaximize()}
                 className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
               >
                 {isMaximized ? (
@@ -297,7 +314,7 @@ export default function App() {
                 )}
               </button>
               <button
-                onClick={() => appWindow.close()}
+                onClick={() => appWindowRef.current?.close()}
                 className="h-full px-3.5 hover:bg-red-500/80 hover:text-white transition-colors flex items-center"
               >
                 <X size={14} className="opacity-90" />
@@ -307,9 +324,7 @@ export default function App() {
         )}
       </div>
 
-      {/* Main Content Row */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Toggle FAB (when sidebar hidden) */}
         {!sidebarVisible && (
           <button
             onClick={toggleSidebar}
@@ -320,40 +335,46 @@ export default function App() {
           </button>
         )}
 
-        {/* Sidebar */}
         {sidebarVisible && (
           <div
-            style={{ width: sidebarWidth }}
-            className="flex-shrink-0 relative h-full"
+            style={{ width: isMobile ? "85%" : sidebarWidth }}
+            className={cn(
+              "flex-shrink-0 relative h-full transition-all duration-300",
+              isMobile && "fixed inset-0 z-[100] bg-sidebar shadow-2xl"
+            )}
           >
             <Sidebar />
-            {/* Resize Handle */}
-            <div
-              onMouseDown={startResizing}
-              className={cn(
-                "absolute top-0 right-0 w-[3px] h-full cursor-col-resize transition-colors z-20",
-                "hover:bg-primary/30",
-                isResizing && "bg-primary/50"
-              )}
-            />
+            {isMobile && (
+              <button
+                onClick={toggleSidebar}
+                className="absolute top-4 right-4 p-2.5 bg-surface rounded-xl shadow-lg hover:bg-surface-hover transition-colors"
+              >
+                <X size={20} />
+              </button>
+            )}
+            {!isMobile && (
+              <div
+                onMouseDown={startResizing}
+                className={cn(
+                  "absolute top-0 right-0 w-[3px] h-full cursor-col-resize transition-colors z-20",
+                  "hover:bg-primary/30",
+                  isResizing && "bg-primary/50"
+                )}
+              />
+            )}
           </div>
         )}
 
-        {/* Main Editor Area */}
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-background relative">
-          {/* Editor */}
           <div className="flex-1 overflow-hidden relative">
             <Editor />
-            {/* Ambient decorative glow */}
             <div className="absolute top-[-15%] right-[-10%] w-[40%] h-[40%] bg-primary/[0.03] blur-[120px] rounded-full pointer-events-none" />
             <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-primary/[0.02] blur-[100px] rounded-full pointer-events-none" />
           </div>
 
-          {/* StatusBar */}
           <StatusBar />
         </main>
       </div>
-      {/* Settings Modal */}
       {settingsOpen && <Settings />}
     </div>
   );

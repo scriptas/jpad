@@ -22,16 +22,23 @@ import {
 import { useSettingsStore } from "../store/useSettingsStore";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { platform } from "@tauri-apps/plugin-os";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-const appWindow = getCurrentWindow();
+// Only get window if not on mobile
+let appWindow: any = null;
+try {
+    // Dynamically loaded inside component if needed
+} catch (e) {
+    console.error("Window API initialization failed in Settings", e);
+}
 
 /** Color label mapping for the editor */
 const COLOR_LABELS: { key: keyof ThemeColors; label: string; description: string }[] = [
+
     { key: "primary", label: "Accent", description: "Primary accent color used for highlights and buttons" },
     { key: "primaryHover", label: "Accent Hover", description: "Hover state for accent elements" },
     { key: "background", label: "Background", description: "Main editor background" },
@@ -376,12 +383,20 @@ export default function Settings() {
     const backdropRef = useRef<HTMLDivElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
-    // Enable dragging on backdrop and header
+    // Enable dragging on backdrop and header (Desktop only)
     useEffect(() => {
+        const p = platform();
+        if (p === "android" || p === "ios") return;
+
+        let desktopWindow: any = null;
+        import("@tauri-apps/api/window").then(m => {
+            desktopWindow = m.getCurrentWindow();
+        });
+
         const handleMouseDown = (e: MouseEvent) => {
             if ((e.target as HTMLElement).closest("button, input, a")) return;
             if (e.buttons !== 1) return;
-            appWindow.startDragging();
+            desktopWindow?.startDragging();
         };
 
         const backdrop = backdropRef.current;
@@ -403,6 +418,7 @@ export default function Settings() {
             }
         };
     }, []);
+
 
     // Preview changes live
     useEffect(() => {
@@ -525,7 +541,7 @@ export default function Settings() {
                 className="relative z-10 w-[780px] max-h-[85vh] bg-sidebar border-2 border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
             >
                 {/* Header */}
-                <div 
+                <div
                     ref={headerRef}
                     className="flex items-center justify-between px-6 py-4 border-b-2 border-border bg-surface/30 cursor-move"
                 >

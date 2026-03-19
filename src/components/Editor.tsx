@@ -37,10 +37,13 @@ import {
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { platform } from "@tauri-apps/plugin-os";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+
 
 /** Color palette for text coloring */
 const TEXT_COLORS = [
@@ -349,7 +352,7 @@ export default function Editor() {
                 // Debounce selection updates to prevent lag during drag selection
                 if (!isLoadingRef.current) {
                     const { from, to, empty } = editor.state.selection;
-                    
+
                     if (empty) {
                         setSelectedContent("");
                         if (selectionTimeoutRef.current) {
@@ -361,7 +364,7 @@ export default function Editor() {
                         if (selectionTimeoutRef.current) {
                             clearTimeout(selectionTimeoutRef.current);
                         }
-                        
+
                         // Defer the expensive serialization until selection is stable
                         selectionTimeoutRef.current = setTimeout(() => {
                             const slice = editor.state.doc.slice(from, to);
@@ -385,21 +388,21 @@ export default function Editor() {
     // Apply vim cursor styling and create block cursor
     useEffect(() => {
         if (!editor || !vimModeEnabled || !vimState) return;
-        
+
         try {
             if (!editor.view || !editor.view.dom) return;
             const editorDom = editor.view.dom;
             const proseMirrorEl = editorDom.querySelector('.ProseMirror') as HTMLElement;
             if (!proseMirrorEl) return;
-            
+
             if (vimState.mode === "NORMAL") {
                 editorDom.classList.add("vim-normal-mode");
-                
+
                 // Ensure editor stays focused
                 if (!editor.isFocused) {
                     editor.commands.focus();
                 }
-                
+
                 // Create and position block cursor
                 let cursorEl = proseMirrorEl.querySelector('.vim-block-cursor') as HTMLElement;
                 if (!cursorEl) {
@@ -414,17 +417,17 @@ export default function Editor() {
                     cursorEl.style.zIndex = '10';
                     proseMirrorEl.appendChild(cursorEl);
                 }
-                
+
                 // Position the cursor at the current selection
                 const updateCursorPosition = () => {
                     try {
                         const { from } = editor.state.selection;
                         const coords = editor.view.coordsAtPos(from);
                         const proseMirrorRect = proseMirrorEl.getBoundingClientRect();
-                        
+
                         const left = coords.left - proseMirrorRect.left;
                         const top = coords.top - proseMirrorRect.top;
-                        
+
                         cursorEl.style.left = `${left}px`;
                         cursorEl.style.top = `${top}px`;
                         cursorEl.style.display = 'block';
@@ -432,19 +435,19 @@ export default function Editor() {
                         // Position not available yet
                     }
                 };
-                
+
                 updateCursorPosition();
-                
+
                 // Update cursor position on selection change
                 const handleTransaction = () => {
                     if (vimState?.mode === "NORMAL") {
                         updateCursorPosition();
                     }
                 };
-                
+
                 editor.on('selectionUpdate', handleTransaction);
                 editor.on('update', handleTransaction);
-                
+
                 return () => {
                     editor.off('selectionUpdate', handleTransaction);
                     editor.off('update', handleTransaction);
@@ -469,14 +472,14 @@ export default function Editor() {
             loadFileContent(activeFileId).then((content) => {
                 editor.commands.setContent(content || "");
                 editor.commands.focus(); // Auto-focus for "instastart"
-                
+
                 // Position cursor at end of document
                 setTimeout(() => {
                     const { state } = editor;
                     const endPos = state.doc.content.size;
                     editor.commands.setTextSelection(endPos);
                 }, 50);
-                
+
                 isLoadingRef.current = false;
             });
         }
@@ -548,7 +551,8 @@ export default function Editor() {
 
     // Handle external file drops from the OS via Tauri's drag-drop API
     useEffect(() => {
-        if (!editor) return;
+        const p = platform();
+        if (p === "android" || p === "ios") return;
 
         let unlisten: (() => void) | undefined;
 
@@ -556,7 +560,8 @@ export default function Editor() {
 
         (async () => {
             try {
-                unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
+                const webview = getCurrentWebview();
+                unlisten = await webview.onDragDropEvent(async (event) => {
                     if (event.payload.type === "drop") {
                         const paths = event.payload.paths;
                         for (const filePath of paths) {
@@ -579,6 +584,7 @@ export default function Editor() {
         return () => {
             unlisten?.();
         };
+
     }, [editor]);
 
     if (!activeFile) {

@@ -412,17 +412,20 @@ pub fn run() {
             let window = app.get_webview_window("main").unwrap();
             
             // Show window after a brief delay to allow React to render
-            let window_clone = window.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                
-                // Linux fix: Setting window title to empty helps remove the "corner icon" 
-                // artifact on some GNOME/GTK versions when decorations are disabled.
-                #[cfg(target_os = "linux")]
-                let _ = window_clone.set_title("");
-                
-                let _ = window_clone.show();
-            });
+            #[cfg(desktop)]
+            {
+                let window_clone = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(150));
+                    
+                    // Linux fix: Setting window title to empty helps remove the "corner icon" 
+                    // artifact on some GNOME/GTK versions when decorations are disabled.
+                    #[cfg(target_os = "linux")]
+                    let _ = window_clone.set_title("");
+                    
+                    let _ = window_clone.show();
+                });
+            }
             
             // Apply macOS-specific window styling for rounded corners
             #[cfg(target_os = "macos")]
@@ -451,32 +454,35 @@ pub fn run() {
             }
             
             // Setup tray icon with menu
-            let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;
-            let menu = tauri::menu::MenuBuilder::new(app)
-                .item(&show)
-                .separator()
-                .item(&quit)
-                .build()?;
+            #[cfg(desktop)]
+            {
+                let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+                let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;
+                let menu = tauri::menu::MenuBuilder::new(app)
+                    .item(&show)
+                    .separator()
+                    .item(&quit)
+                    .build()?;
 
-            let tray_icon = app.default_window_icon().unwrap().clone();
+                let tray_icon = app.default_window_icon().unwrap().clone();
 
-            let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
-                .icon(tray_icon)
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
+                    .icon(tray_icon)
+                    .menu(&menu)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "quit" => {
+                            app.exit(0);
                         }
-                    }
-                    _ => {}
-                })
-                .build(app)?;
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        _ => {}
+                    })
+                    .build(app)?;
+            }
             
             Ok(())
         })

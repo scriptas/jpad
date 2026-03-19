@@ -4,6 +4,7 @@ import { Cloud } from "lucide-react";
 import { useMemo } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { platform } from "@tauri-apps/plugin-os";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -21,29 +22,34 @@ function calculateStats(htmlContent: string) {
         .replace(/&[a-z]+;/gi, " ") // Remove HTML entities
         .replace(/\s+/g, " ")
         .trim();
-    
+
     const wordCount = text ? text.split(/\s+/).filter(w => w.length > 0).length : 0;
     const charCount = text.length;
-    
+
     // Count block-level elements for line count
     const lineCount = Math.max(1, (htmlContent.match(/<\/p>|<\/h[1-6]>|<\/li>|<br\s*\/?>/gi) || []).length);
-    
+
     return { wordCount, charCount, lineCount };
 }
 
 export default function StatusBar() {
     const { activeFileId, files, editorContent, selectedContent, vimState } = useStore();
     const { vimModeEnabled } = useSettingsStore();
+    const p = platform();
+    const isMobile = p === "android" || p === "ios";
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
     const totalStats = useMemo(() => calculateStats(editorContent), [editorContent]);
     const selectedStats = useMemo(() => calculateStats(selectedContent), [selectedContent]);
-    
+
     const hasSelection = selectedContent.length > 0;
 
     return (
-        <footer className="h-[22px] bg-sidebar border-t-2 border-border flex items-center px-3 text-[11px] text-text-muted select-none gap-3 flex-shrink-0 rounded-b-[8px]">
+        <footer className={cn(
+            "h-[22px] bg-sidebar border-t-2 border-border flex items-center px-3 text-[11px] text-text-muted select-none gap-3 flex-shrink-0",
+            !isMobile && "rounded-b-[8px]"
+        )}>
             {/* Sync Status */}
             <div className="flex items-center gap-1.5 hover:text-text cursor-default transition-colors">
                 <Cloud size={11} className="text-primary" />
@@ -69,7 +75,7 @@ export default function StatusBar() {
                             </>
                         )}
                     </span>
-                    
+
                     {/* Vim Mode Indicator */}
                     {vimModeEnabled && vimState && (
                         <>
