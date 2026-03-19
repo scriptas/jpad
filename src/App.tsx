@@ -33,13 +33,16 @@ export default function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
+  const [isLinux, setIsLinux] = useState(false);
 
   const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
   useEffect(() => {
     refreshFiles();
     initializeTheme();
-    setIsMacOS(platform() === "macos");
+    const p = platform();
+    setIsMacOS(p === "macos");
+    setIsLinux(p === "linux");
 
     // Periodic file system refresh to detect external changes
     const refreshInterval = setInterval(() => {
@@ -196,13 +199,15 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-full bg-background text-text overflow-hidden border-2 border-border rounded-[8px]"
+      "flex flex-col h-screen w-full bg-background text-text overflow-hidden border-2 border-border",
+      isMacOS ? "rounded-[10px]" : isLinux ? "rounded-none" : "rounded-[8px]"
     )}>
       {/* Custom Title Bar */}
       <div
         ref={titleBarRef}
         className={cn(
-          "h-10 flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default rounded-t-[8px] overflow-hidden"
+          "h-10 flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default overflow-hidden",
+          isMacOS ? "rounded-t-[10px]" : isLinux ? "rounded-none" : "rounded-t-[8px]"
         )}
       >
         {isMacOS ? (
