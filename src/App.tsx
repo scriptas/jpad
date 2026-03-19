@@ -205,37 +205,40 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-full bg-background text-text overflow-hidden border-2 border-border",
+      "flex flex-col h-screen w-full bg-background text-text overflow-hidden",
+      isMobile ? "border-[8px] border-border" : "border-2 border-border",
       isMacOS ? "rounded-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-[8px]"
     )}>
       {/* Custom Title Bar */}
       <div
         ref={titleBarRef}
         className={cn(
-          "h-10 flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default overflow-hidden",
+          "flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default overflow-hidden",
+          isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-10",
           isMacOS ? "rounded-t-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-t-[8px]"
         )}
       >
         {isMobile ? (
           // Mobile layout: simple branding
-          <>
-            <div className="flex items-center gap-2 px-4 h-full flex-1">
+          <div className="flex items-center justify-between w-full px-5">
+            <div className="flex items-center gap-3">
               <NeonIcon size={24} />
-              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+              <span className="text-[14px] font-bold tracking-wider text-text uppercase">
                 JPad
               </span>
             </div>
             {/* Center: File Name (smaller on mobile) */}
-            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none pr-4">
+            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none px-4">
               {activeFile && (
-                <span className="text-[10px] text-text/30 font-medium truncate max-w-[150px] tracking-wider uppercase">
+                <span className="text-[12px] text-text/30 font-medium truncate tracking-wider uppercase">
                   {activeFile.name}
                 </span>
               )}
             </div>
-          </>
+            <div className="w-10" />
+          </div>
         ) : isMacOS ? (
-          // macOS layout: traffic light buttons (left) | icon + text | filename (center) | empty (right)
+          // macOS layout...
           <>
             <div className="flex items-center gap-2 pl-3 pr-3 h-full flex-shrink-0">
               <button
@@ -279,7 +282,7 @@ export default function App() {
             <div className="w-[140px] flex-shrink-0" />
           </>
         ) : (
-          // Windows/Linux layout: icon + text (left) | filename (center) | window controls (right)
+          // Windows/Linux layout...
           <>
             <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
               <NeonIcon size={32} />
@@ -328,50 +331,48 @@ export default function App() {
         {!sidebarVisible && (
           <button
             onClick={toggleSidebar}
-            className="fixed bottom-12 left-4 z-50 p-2.5 bg-primary/90 text-white rounded-lg shadow-lg shadow-primary/20 hover:bg-primary hover:scale-105 active:scale-95 transition-all backdrop-blur-sm"
+            className="fixed bottom-12 left-6 z-50 p-4 bg-primary/95 text-white rounded-[2rem] shadow-2xl shadow-primary/30 hover:bg-primary hover:scale-105 active:scale-95 transition-all backdrop-blur-md border-2 border-white/20"
             title="Show Sidebar"
           >
-            <PanelLeftOpen size={18} />
+            <PanelLeftOpen size={24} />
           </button>
         )}
 
         {sidebarVisible && (
-          <div
-            style={{ width: isMobile ? "85%" : sidebarWidth }}
-            className={cn(
-              "flex-shrink-0 relative h-full transition-all duration-300",
-              isMobile && "fixed inset-0 z-[100] bg-sidebar shadow-2xl"
-            )}
-          >
-            <Sidebar />
+          <>
+            {/* Sidebar Backdrop (Mobile only) */}
             {isMobile && (
-              <button
-                onClick={toggleSidebar}
-                className="absolute top-4 right-4 p-2.5 bg-surface rounded-xl shadow-lg hover:bg-surface-hover transition-colors"
-              >
-                <X size={20} />
-              </button>
-            )}
-            {!isMobile && (
               <div
-                onMouseDown={startResizing}
-                className={cn(
-                  "absolute top-0 right-0 w-[3px] h-full cursor-col-resize transition-colors z-20",
-                  "hover:bg-primary/30",
-                  isResizing && "bg-primary/50"
-                )}
+                className="fixed inset-0 bg-black/80 backdrop-blur-[4px] z-[90] animate-in fade-in duration-300"
+                onClick={toggleSidebar}
               />
             )}
-          </div>
+            <div
+              style={{ width: isMobile ? "85%" : sidebarWidth }}
+              className={cn(
+                "flex-shrink-0 relative h-full transition-all duration-300",
+                isMobile && "fixed inset-y-0 left-0 z-[100] bg-sidebar shadow-2xl border-r-[8px] border-border animate-in slide-in-from-left duration-300"
+              )}
+            >
+              <Sidebar />
+              {!isMobile && (
+                <div
+                  onMouseDown={startResizing}
+                  className={cn(
+                    "absolute top-0 right-0 w-[4px] h-full cursor-col-resize transition-colors z-20",
+                    "hover:bg-primary/30",
+                    isResizing && "bg-primary/50"
+                  )}
+                />
+              )}
+            </div>
+          </>
         )}
 
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-background relative">
           <div className="flex-1 overflow-hidden relative">
             <Editor />
-            <div className="absolute top-[-15%] right-[-10%] w-[40%] h-[40%] bg-primary/[0.03] blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-primary/[0.02] blur-[100px] rounded-full pointer-events-none" />
           </div>
-
           <StatusBar />
         </main>
       </div>
