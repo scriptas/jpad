@@ -42,6 +42,9 @@ export default function Sidebar() {
     const [dragOverId, setDragOverId] = useState<string | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [showFolderDialog, setShowFolderDialog] = useState(false);
+    const [touchDraggedId, setTouchDraggedId] = useState<string | null>(null);
+    const [touchTargetId, setTouchTargetId] = useState<string | null>(null);
+    const [touchIndicatorPos, setTouchIndicatorPos] = useState({ x: 0, y: 0 });
     const [folderDialogParentPath, setFolderDialogParentPath] = useState<string | undefined>();
     const [folderNameInput, setFolderNameInput] = useState("");
     const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -129,6 +132,57 @@ export default function Sidebar() {
             setExpanded(prev => ({ ...prev, [targetFolder.id]: true }));
         } catch (error) {
             console.error("Failed to move file:", error);
+        }
+    };
+
+    const handleTouchStart = (e: React.TouchEvent, id: string) => {
+        // Prevent accidental triggers during scrolling? 
+        // We'll use a short timeout later if needed.
+        setTouchDraggedId(id);
+        const touch = e.touches[0];
+        setTouchIndicatorPos({ x: touch.clientX, y: touch.clientY });
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!touchDraggedId) return;
+        const touch = e.touches[0];
+        setTouchIndicatorPos({ x: touch.clientX, y: touch.clientY });
+
+        // Find drop target under finger
+        const element = document.elementFromPoint(touch.clientX, touch.clientY);
+        const folderEl = element?.closest('[data-folder-id]');
+        const folderId = folderEl?.getAttribute('data-folder-id');
+
+        if (folderId && folderId !== touchDraggedId) {
+            setTouchTargetId(folderId);
+        } else {
+            setTouchTargetId(null);
+        }
+
+        // Prevent scrolling while dragging
+        if (e.cancelable) e.preventDefault();
+    };
+
+    const handleTouchEnd = async () => {
+        if (!touchDraggedId) return;
+
+        const sourcePath = touchDraggedId;
+        const targetId = touchTargetId;
+
+        setTouchDraggedId(null);
+        setTouchTargetId(null);
+
+        if (sourcePath && targetId && sourcePath !== targetId) {
+            const fileName = sourcePath.split("/").pop();
+            const newPath = `${targetId}/${fileName}`;
+            if (sourcePath !== newPath) {
+                try {
+                    await movePath(sourcePath, newPath);
+                    setExpanded(prev => ({ ...prev, [targetId]: true }));
+                } catch (error) {
+                    console.error("Failed to move file (touch):", error);
+                }
+            }
         }
     };
 
@@ -235,19 +289,23 @@ export default function Sidebar() {
             const isExpanded = expanded[node.id];
             const isActive = activeFileId === node.id;
             const isSelected = selectedFiles.has(node.id);
-            const isDragOver = dragOverId === node.id;
-            const isDragging = draggedId === node.id;
+            const isDragOver = dragOverId === node.id || touchTargetId === node.id;
+            const isDragging = draggedId === node.id || touchDraggedId === node.id;
 
             return (
                 <div key={node.id} className="animate-in fade-in duration-150">
                     <div
                         draggable
+                        data-folder-id={node.type === "folder" ? node.id : undefined}
                         onDragStart={(e) => handleDragStart(e, node.id)}
                         onDragOver={(e) => handleDragOver(e, node)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, node)}
+                        onTouchStart={(e) => handleTouchStart(e, node.id)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                         className={cn(
-                            "flex items-center py-[6px] px-2 cursor-pointer rounded-md mx-1 group transition-all duration-150 relative",
+                            "flex items-center py-[6px] px-2 cursor-pointer rounded-md mx-1 group transition-all duration-150 relative touch-none",
                             "hover:bg-surface-hover/60",
                             isActive && "bg-surface text-primary ring-1 ring-primary/20",
                             isSelected && !isActive && "bg-primary/20 ring-1 ring-primary/40",
@@ -433,6 +491,21 @@ export default function Sidebar() {
                     v1.3.0
                 </div>
             </div>
+
+            {/* Drag Ghost for Touch */}
+            {touchDraggedId && (
+                <div
+                    className="fixed pointer-events-none z-[300] bg-primary/90 text-white px-3 py-2 rounded-xl text-sm font-bold shadow-2xl flex items-center gap-2"
+                    style={{
+                        left: touchIndicatorPos.x + 20,
+                        top: touchIndicatorPos.y - 40,
+                        transform: "translate(-50%, -50%)",
+                    }}
+                >
+                    <FilePlus size={16} />
+                    Moving...
+                </div>
+            )}
 
             {/* Folder Creation Dialog Overlay */}
             {showFolderDialog && (
