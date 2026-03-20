@@ -4,11 +4,11 @@ import Editor from "./components/Editor";
 import StatusBar from "./components/StatusBar";
 import { useStore, findFileNode } from "./store/useStore";
 import {
-  PanelLeftOpen,
   Maximize2,
   X,
   Square,
   Minus,
+  Menu,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -222,6 +222,13 @@ export default function App() {
           // Mobile layout: simple branding
           <div className="flex items-center justify-between w-full px-5">
             <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 -ml-2 hover:bg-surface-hover rounded-xl transition-all"
+                title="Sidebar"
+              >
+                <Menu size={24} className="text-primary" />
+              </button>
               <NeonIcon size={24} />
               <span className="text-[14px] font-bold tracking-wider text-text uppercase">
                 JPad
@@ -328,15 +335,7 @@ export default function App() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {!sidebarVisible && (
-          <button
-            onClick={toggleSidebar}
-            className="fixed bottom-12 left-6 z-50 p-4 bg-primary/95 text-white rounded-[2rem] shadow-2xl shadow-primary/30 hover:bg-primary hover:scale-105 active:scale-95 transition-all backdrop-blur-md border-2 border-white/20"
-            title="Show Sidebar"
-          >
-            <PanelLeftOpen size={24} />
-          </button>
-        )}
+        {/* Floating Sidebar Toggle - REMOVED for mobile header menu */}
 
         {sidebarVisible && (
           <>
