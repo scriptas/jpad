@@ -152,17 +152,17 @@ fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
 }
 
 /// Returns the absolute path to the notes directory.
-/// Uses ~/Documents/jpad-notes on all platforms.
+/// Uses the system Documents directory as base.
 #[tauri::command]
-fn get_notes_root() -> Result<String, String> {
-    let docs_dir = dirs::document_dir()
-        .ok_or_else(|| "Could not find Documents directory".to_string())?;
+fn get_notes_root(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
     
+    let docs_dir = app.path().document_dir().map_err(|e| e.to_string())?;
     let notes_dir = docs_dir.join("jpad-notes");
 
     // Ensure it exists
     if !notes_dir.exists() {
-        fs::create_dir_all(&notes_dir).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&notes_dir).map_err(|e| format!("Failed to create notes root: {}", e))?;
     }
 
     Ok(notes_dir.to_string_lossy().to_string().replace('\\', "/"))

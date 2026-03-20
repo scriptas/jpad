@@ -348,10 +348,10 @@ export default function App() {
               />
             )}
             <div
-              style={{ width: isMobile ? "85%" : sidebarWidth }}
+              style={{ width: isMobile ? "100%" : sidebarWidth }}
               className={cn(
                 "flex-shrink-0 relative h-full transition-all duration-300",
-                isMobile && "fixed inset-y-0 left-0 z-[100] bg-sidebar shadow-2xl border-r-[8px] border-border animate-in slide-in-from-left duration-300"
+                isMobile && "fixed inset-y-0 left-0 z-[100] bg-sidebar shadow-2xl animate-in slide-in-from-left duration-300"
               )}
             >
               <Sidebar />

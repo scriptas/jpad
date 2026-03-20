@@ -1,21 +1,15 @@
 import {
     ChevronDown,
     ChevronRight,
-    File,
     FileText,
     Folder,
     FolderOpen,
     Search,
     FilePlus,
     FolderPlus,
-    Trash2,
-    Pencil,
-    MoreHorizontal,
-    ExternalLink,
-    Settings,
+    Settings as SettingsIcon,
     X,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { useStore, FileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -27,13 +21,6 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-/** Context menu state */
-interface ContextMenu {
-    x: number;
-    y: number;
-    node: FileNode;
-}
-
 export default function Sidebar() {
     const {
         files,
@@ -42,8 +29,6 @@ export default function Sidebar() {
         toggleSidebar,
         createFile,
         createFolder,
-        deletePath,
-        renamePath,
         movePath,
         notesRoot,
         searchResults,
@@ -54,7 +39,6 @@ export default function Sidebar() {
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [searchQuery, setSearchQuery] = useState("");
-    const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [showFolderDialog, setShowFolderDialog] = useState(false);
@@ -62,22 +46,10 @@ export default function Sidebar() {
     const [folderNameInput, setFolderNameInput] = useState("");
     const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
     const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
-    const contextMenuRef = useRef<HTMLDivElement>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isMobile = platform() === "android" || platform() === "ios";
-
-    // Close context menu when clicking outside
-    useEffect(() => {
-        const handleClick = (e: MouseEvent) => {
-            if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-                setContextMenu(null);
-            }
-        };
-        document.addEventListener("mousedown", handleClick);
-        return () => document.removeEventListener("mousedown", handleClick);
-    }, []);
 
     // Auto-focus folder name input when dialog opens
     useEffect(() => {
@@ -122,32 +94,61 @@ export default function Sidebar() {
         setShowFolderDialog(true);
     };
 
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+        setDraggedId(id);
+        e.dataTransfer.setData("text/plain", id);
+    };
+
+    const handleDragOver = (e: React.DragEvent, node: FileNode) => {
+        if (node.type !== "folder" || node.id === draggedId) return;
+        e.preventDefault();
+        setDragOverId(node.id);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverId(null);
+    };
+
+    const handleDrop = async (e: React.DragEvent, targetFolder: FileNode) => {
+        e.preventDefault();
+        const sourcePath = e.dataTransfer.getData("text/plain");
+        setDragOverId(null);
+        setDraggedId(null);
+
+        if (!sourcePath || targetFolder.type !== "folder" || sourcePath === targetFolder.id) {
+            return;
+        }
+
+        const fileName = sourcePath.split("/").pop();
+        const newPath = `${targetFolder.id}/${fileName}`;
+
+        if (sourcePath === newPath) return;
+
+        try {
+            await movePath(sourcePath, newPath);
+            setExpanded(prev => ({ ...prev, [targetFolder.id]: true }));
+        } catch (error) {
+            console.error("Failed to move file:", error);
+        }
+    };
+
     const handleFolderDialogSubmit = async () => {
         if (!folderNameInput || !folderNameInput.trim()) {
             return;
         }
         const sanitized = folderNameInput.trim().replace(/[\/\\:*?"<>|]/g, "");
         if (!sanitized) {
-            alert("Folder name cannot contain only special characters");
             return;
         }
         try {
             const basePath = folderDialogParentPath || notesRoot;
             const fullPath = `${basePath}/${sanitized}`;
             await createFolder(fullPath);
+            setExpanded(prev => ({ ...prev, [basePath]: true }));
             setShowFolderDialog(false);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("Failed to create folder:", message, error);
-            alert(`Failed to create folder: ${message}`);
-        }
-    };
-
-    const handleDelete = async (node: FileNode) => {
-        try {
-            await deletePath(node.id);
-        } catch (error) {
-            console.error('Error during deletion:', error);
         }
     };
 
@@ -198,29 +199,8 @@ export default function Sidebar() {
         }
     };
 
-    const handleRename = async (node: FileNode) => {
-        const newName = window.prompt("Enter new name", node.name);
-        if (newName && newName !== node.name) {
-            const parts = node.id.split("/");
-            parts[parts.length - 1] = newName;
-            const newPath = parts.join("/");
-            await renamePath(node.id, newPath);
-        }
-    };
-
-    const handleCopyPath = (path: string) => {
-        navigator.clipboard.writeText(path);
-    };
-
     const toggleExpand = (id: string) => {
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-    };
-
-    const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
-        if (isMobile) return;
-        e.preventDefault();
-        e.stopPropagation();
-        setContextMenu({ x: e.clientX, y: e.clientY, node });
     };
 
     const filterNodes = useCallback(
@@ -246,30 +226,26 @@ export default function Sidebar() {
         []
     );
 
-    const getFileIcon = (name: string) => {
-        const ext = name.split(".").pop()?.toLowerCase();
-        switch (ext) {
-            case "jt":
-            case "md":
-            case "txt":
-                return <FileText size={isMobile ? 18 : 14} className="mr-1.5 text-primary" />;
-            default:
-                return <File size={isMobile ? 18 : 14} className="mr-1.5 opacity-70" />;
-        }
+    const getFileIcon = (_name: string) => {
+        return <FileText size={isMobile ? 18 : 14} className="mr-1.5 text-primary" />;
     };
 
     const renderTree = (nodes: FileNode[], depth = 0) => {
         return nodes.map((node) => {
             const isExpanded = expanded[node.id];
             const isActive = activeFileId === node.id;
+            const isSelected = selectedFiles.has(node.id);
             const isDragOver = dragOverId === node.id;
             const isDragging = draggedId === node.id;
-            const isSelected = selectedFiles.has(node.id);
 
             return (
                 <div key={node.id} className="animate-in fade-in duration-150">
                     <div
-                        draggable={!isMobile}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, node.id)}
+                        onDragOver={(e) => handleDragOver(e, node)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, node)}
                         className={cn(
                             "flex items-center py-[6px] px-2 cursor-pointer rounded-md mx-1 group transition-all duration-150 relative",
                             "hover:bg-surface-hover/60",
@@ -277,11 +253,10 @@ export default function Sidebar() {
                             isSelected && !isActive && "bg-primary/20 ring-1 ring-primary/40",
                             isDragOver && "bg-primary/40 ring-2 ring-primary shadow-xl scale-[1.05] z-50",
                             isDragging && "opacity-50",
-                            isMobile ? "min-h-[48px]" : "cursor-grab active:cursor-grabbing"
+                            isMobile ? "min-h-[52px]" : "cursor-grab active:cursor-grabbing"
                         )}
                         style={{ paddingLeft: `${depth * 16 + 8}px` }}
                         onClick={(e) => handleFileClick(node, e)}
-                        onContextMenu={(e) => handleContextMenu(e, node)}
                     >
                         <div className="flex items-center flex-1 min-w-0">
                             {node.type === "folder" ? (
@@ -322,7 +297,6 @@ export default function Sidebar() {
     };
 
     const displayedFiles = filterNodes(files, searchQuery);
-    const activeThemeIdStore = useThemeStore((state) => state.activeThemeId);
 
     const renderSearchResults = () => {
         if (searchResults.length === 0) {
@@ -452,13 +426,49 @@ export default function Sidebar() {
                     onClick={() => useThemeStore.getState().toggleSettings()}
                     className="p-2.5 hover:bg-surface-hover rounded-xl transition-all text-text flex items-center gap-3 text-[14px] font-semibold border border-border/50"
                 >
-                    <Settings size={20} />
+                    <SettingsIcon size={20} />
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
                     v1.3.0
                 </div>
             </div>
+
+            {/* Folder Creation Dialog Overlay */}
+            {showFolderDialog && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowFolderDialog(false)} />
+                    <div className="relative w-full max-w-md bg-sidebar/95 border-2 border-primary/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <FolderPlus size={20} className="text-primary" />
+                            Create New Folder
+                        </h2>
+                        <input
+                            ref={folderInputRef}
+                            type="text"
+                            value={folderNameInput}
+                            onChange={(e) => setFolderNameInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleFolderDialogSubmit()}
+                            placeholder="Folder name..."
+                            className="w-full bg-surface/60 border-2 border-border rounded-xl px-4 py-3 mb-6 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-[16px] text-text"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowFolderDialog(false)}
+                                className="flex-1 px-4 py-3 rounded-xl border-2 border-border font-semibold hover:bg-surface-hover transition-all text-text"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleFolderDialogSubmit}
+                                className="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </aside>
     );
 }
