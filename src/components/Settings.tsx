@@ -28,13 +28,7 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-// Only get window if not on mobile
-let appWindow: any = null;
-try {
-    // Dynamically loaded inside component if needed
-} catch (e) {
-    console.error("Window API initialization failed in Settings", e);
-}
+// Dynamically loaded inside component if needed
 
 /** Color label mapping for the editor */
 const COLOR_LABELS: { key: keyof ThemeColors; label: string; description: string }[] = [
