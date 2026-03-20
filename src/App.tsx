@@ -272,6 +272,13 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
+              <button
+                onClick={toggleSidebar}
+                className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
+                title="Toggle Sidebar (Ctrl+S)"
+              >
+                <Menu size={16} className="text-primary" />
+              </button>
               <NeonIcon size={32} />
               <span className="text-[11px] font-bold tracking-wide text-text uppercase">
                 JPad
@@ -292,6 +299,13 @@ export default function App() {
           // Windows/Linux layout...
           <>
             <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
+              <button
+                onClick={toggleSidebar}
+                className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
+                title="Toggle Sidebar"
+              >
+                <Menu size={16} className="text-primary" />
+              </button>
               <NeonIcon size={32} />
               <span className="text-[11px] font-bold tracking-wide text-text uppercase">
                 JPad
