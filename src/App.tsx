@@ -197,6 +197,13 @@ export default function App() {
         const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
         createFile(`${notesRoot}/${defaultName}`);
       }
+
+      // Ctrl+B (or Cmd+B) for Sidebar Toggle
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+        e.preventDefault();
+        const { toggleSidebar } = useStore.getState();
+        toggleSidebar();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -275,7 +282,7 @@ export default function App() {
               <button
                 onClick={toggleSidebar}
                 className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
-                title="Toggle Sidebar (Ctrl+S)"
+                title="Toggle Sidebar (Ctrl+B)"
               >
                 <Menu size={16} className="text-primary" />
               </button>
