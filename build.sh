@@ -8,11 +8,16 @@ echo "🚀 Building JPad for production..."
 echo "Platform: $(uname -s)"
 echo ""
 
-# Ensure Node 22 is used
-NVM_NODE_22="/home/antanas/.nvm/versions/node/v22.22.1/bin"
-if [ -d "$NVM_NODE_22" ]; then
-    echo "🟢 Found Node 22 at $NVM_NODE_22"
-    export PATH="$NVM_NODE_22:$PATH"
+# Ensure Node 22 is available
+if [ -n "$NVM_DIR" ]; then
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    nvm use 22 2>/dev/null && echo "🟢 Using Node $(node -v) via NVM"
+elif command -v node &>/dev/null; then
+    echo "🟡 Using system Node $(node -v)"
+else
+    echo "❌ Node.js not found. Please install Node 22+."
+    exit 1
 fi
 
 # Clean previous builds

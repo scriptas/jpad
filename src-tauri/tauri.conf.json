@@ -16,10 +16,10 @@
         "width": 1100,
         "height": 750,
         "decorations": false,
-        "transparent": true,
+        "transparent": false,
         "resizable": true,
         "dragDropEnabled": false,
-        "visible": false
+        "visible": true
       }
     ],
     "security": {

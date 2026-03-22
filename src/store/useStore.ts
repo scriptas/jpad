@@ -109,11 +109,25 @@ export const useStore = create<AppState>((set, get) => ({
     toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
 
     saveActiveFile: async (content) => {
-        const { activeFileId } = get();
+        const { activeFileId, notesRoot } = get();
         if (!activeFileId) return;
         set({ isSaving: true });
         try {
             await invoke("write_file", { path: activeFileId, content });
+            
+            // Push to cloud if enabled
+            const { useSyncStore } = await import("./useSyncStore");
+            const { config } = useSyncStore.getState();
+            if (config.enabled) {
+                const { syncService } = await import("../services/syncService");
+                const { supabaseSyncService } = await import("../services/supabaseService");
+                
+                if (config.mode === "webdav") {
+                    await syncService.pushFile(notesRoot, activeFileId);
+                } else {
+                    await supabaseSyncService.pushFile(notesRoot, activeFileId);
+                }
+            }
         } catch (error) {
             console.error("Failed to save file:", error);
         } finally {

@@ -14,6 +14,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useThemeStore, initializeTheme } from "./store/useThemeStore";
 import { useSettingsStore } from "./store/useSettingsStore";
+import { useSyncStore } from "./store/useSyncStore";
 import Settings from "./components/Settings";
 import NeonIcon from "./components/NeonIcon";
 import { platform } from "@tauri-apps/plugin-os";
@@ -26,11 +27,11 @@ export default function App() {
   const { sidebarVisible, toggleSidebar, refreshFiles, activeFileId, files } =
     useStore();
   const { settingsOpen } = useThemeStore();
+  const { initializeSync } = useSyncStore();
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isResizing, setIsResizing] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
-  const [isLinux, setIsLinux] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const appWindowRef = useRef<any>(null);
 
@@ -39,9 +40,9 @@ export default function App() {
   useEffect(() => {
     refreshFiles();
     initializeTheme();
+    initializeSync();
     const p = platform();
     setIsMacOS(p === "macos");
-    setIsLinux(p === "linux");
     const mobile = p === "android" || p === "ios";
     setIsMobile(mobile);
 
@@ -214,7 +215,7 @@ export default function App() {
     <div className={cn(
       "flex flex-col h-screen w-full bg-background text-text overflow-hidden",
       isMobile ? "border-[8px] border-border" : "border-2 border-border",
-      isMacOS ? "rounded-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-[8px]"
+      isMacOS ? "rounded-[10px]" : isMobile ? "rounded-none" : "rounded-[8px]"
     )}>
       {/* Custom Title Bar */}
       <div
@@ -222,7 +223,7 @@ export default function App() {
         className={cn(
           "flex items-center bg-sidebar border-b-2 border-border flex-shrink-0 select-none cursor-default overflow-hidden",
           isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-10",
-          isMacOS ? "rounded-t-[10px]" : (isLinux || isMobile) ? "rounded-none" : "rounded-t-[8px]"
+          isMacOS ? "rounded-t-[10px]" : isMobile ? "rounded-none" : "rounded-t-[8px]"
         )}
       >
         {isMobile ? (

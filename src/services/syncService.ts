@@ -1,6 +1,7 @@
 import { createClient, WebDAVClient, FileStat } from 'webdav';
 import { invoke } from '@tauri-apps/api/core';
 import { fetch } from '@tauri-apps/plugin-http';
+import { platform } from '@tauri-apps/plugin-os';
 
 export interface SyncConfig {
   url: string;
@@ -144,7 +145,11 @@ class SyncService {
   private async uploadFile(notesRoot: string, relativePath: string): Promise<void> {
     if (!this.client || !this.config) throw new Error('Not initialized');
 
-    const localPath = `${notesRoot}${relativePath.replace(/\//g, '\\')}`;
+    const sep = platform() === 'windows' ? '\\' : '/';
+    const nativeRelative = sep === '\\' ? relativePath.replace(/\//g, '\\') : relativePath.replace(/\\/g, '/');
+    const cleanRelative = nativeRelative.startsWith(sep) ? nativeRelative.slice(1) : nativeRelative;
+    const cleanRoot = notesRoot.endsWith(sep) ? notesRoot.slice(0, -1) : notesRoot;
+    const localPath = `${cleanRoot}${sep}${cleanRelative}`;
     const remotePath = `${this.config.remotePath}${relativePath}`;
     
     const content = await invoke<string>('read_file', { path: localPath });
@@ -154,7 +159,11 @@ class SyncService {
   private async downloadFile(notesRoot: string, relativePath: string): Promise<void> {
     if (!this.client || !this.config) throw new Error('Not initialized');
 
-    const localPath = `${notesRoot}${relativePath.replace(/\//g, '\\')}`;
+    const sep = platform() === 'windows' ? '\\' : '/';
+    const nativeRelative = sep === '\\' ? relativePath.replace(/\//g, '\\') : relativePath.replace(/\\/g, '/');
+    const cleanRelative = nativeRelative.startsWith(sep) ? nativeRelative.slice(1) : nativeRelative;
+    const cleanRoot = notesRoot.endsWith(sep) ? notesRoot.slice(0, -1) : notesRoot;
+    const localPath = `${cleanRoot}${sep}${cleanRelative}`;
     const remotePath = `${this.config.remotePath}${relativePath}`;
     
     const content = await this.client.getFileContents(remotePath, { format: 'text' }) as string;
@@ -164,8 +173,52 @@ class SyncService {
   async pushFile(notesRoot: string, filePath: string): Promise<void> {
     if (!this.isEnabled()) return;
 
-    const relativePath = filePath.replace(notesRoot, '').replace(/\\/g, '/');
+    let relativePath = filePath.replace(notesRoot, '');
+    relativePath = relativePath.replace(/\\/g, '/');
     await this.uploadFile(notesRoot, relativePath);
+  }
+
+  async testConnection(config: SyncConfig): Promise<{
+    success: boolean;
+    steps: { name: string; status: 'success' | 'error'; message: string }[];
+  }> {
+    const steps: { name: string; status: 'success' | 'error'; message: string }[] = [];
+
+    try {
+      if (!config.url) {
+        steps.push({ name: 'Verify URL', status: 'error', message: 'URL is required' });
+        return { success: false, steps };
+      }
+      steps.push({ name: 'Verify URL', status: 'success', message: 'Ready to connect' });
+
+      const client = createClient(config.url, {
+        username: config.username,
+        password: config.password,
+        httpAgent: fetch as any,
+      });
+
+      // Test root access
+      try {
+        await client.exists('/');
+        steps.push({ name: 'Connect', status: 'success', message: 'Connection established' });
+      } catch (error) {
+        steps.push({ name: 'Connect', status: 'error', message: `Could not connect: ${error}` });
+        return { success: false, steps };
+      }
+
+      // Check path
+      const exists = await client.exists(config.remotePath);
+      if (exists) {
+        steps.push({ name: 'Verify Path', status: 'success', message: `Path "${config.remotePath}" is ready` });
+      } else {
+        steps.push({ name: 'Verify Path', status: 'success', message: `Path "${config.remotePath}" will be created` });
+      }
+
+      return { success: true, steps };
+    } catch (error) {
+      steps.push({ name: 'Error', status: 'error', message: String(error) });
+      return { success: false, steps };
+    }
   }
 }
 

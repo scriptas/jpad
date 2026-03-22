@@ -2,21 +2,28 @@
 # Development script for JPad
 # This script ensures Node.js 22 is used (required for Vite 7)
 
-# Try to find Node 22 in NVM directory
-NVM_NODE_22="/home/antanas/.nvm/versions/node/v22.22.1/bin"
-
-if [ -d "$NVM_NODE_22" ]; then
-    echo "🟢 Found Node 22 at $NVM_NODE_22"
-    export PATH="$NVM_NODE_22:$PATH"
+# Try to find Node 22 via NVM
+if [ -n "$NVM_DIR" ]; then
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    nvm use 22 2>/dev/null && echo "🟢 Using Node $(node -v) via NVM"
+elif command -v node &>/dev/null; then
+    echo "🟡 Using system Node $(node -v)"
 else
-    echo "🟡 Node 22 not found in expected NVM path. Relying on system Node."
+    echo "❌ Node.js not found. Please install Node 22+."
+    exit 1
 fi
 
 echo "🚀 Starting JPad in development mode..."
 fuser -k 1420/tcp 2>/dev/null || true
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-export WEBKIT_DISABLE_GPU_PROCESS=1
-export WEBKIT_GPU_ACCELERATION_POLICY_NEVER=1
-export WEBKIT_USE_SOFTWARE_RENDERING=1
-export GDK_BACKEND=x11
+
+# ── Wayland / Hyprland optimisation ──
+# Let GDK auto-detect the backend (wayland-native on Wayland, x11 on X11).
+# Only force x11 if native Wayland is explicitly broken for you:
+#   export GDK_BACKEND=x11
+export GDK_BACKEND=wayland,x11
+
+# WebKitGTK Wayland-safe rendering flags
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+
 npm run tauri:dev

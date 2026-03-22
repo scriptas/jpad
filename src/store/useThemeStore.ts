@@ -39,6 +39,21 @@ export const PRESET_THEMES: Theme[] = [
         },
     },
     {
+        id: "neon-emerald",
+        name: "Neon Emerald",
+        colors: {
+            primary: "#00ffaa",
+            primaryHover: "#00ffd4",
+            background: "#020806",
+            sidebar: "#050f0c",
+            surface: "#0a1a14",
+            surfaceHover: "#152b22",
+            text: "#ffffff",
+            textMuted: "#00ffaa",
+            border: "#00ffaa88",
+        },
+    },
+    {
         id: "pure-white",
         name: "Clean Light",
         colors: {

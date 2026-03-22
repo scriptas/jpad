@@ -1,131 +1,215 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { syncService, SyncConfig, SyncStatus } from '../services/syncService';
+import { supabaseSyncService, SupabaseConfig } from '../services/supabaseService';
 import { useStore } from './useStore';
 
+export type SyncMode = 'webdav' | 'supabase';
+
+interface CombinedSyncConfig {
+  mode: SyncMode;
+  webdav: SyncConfig;
+  supabase: SupabaseConfig;
+  enabled: boolean;
+}
+
 interface SyncStore {
-  config: SyncConfig;
-  status: SyncStatus;
+  // Persisted config (stored locally, never pushed to remote)
+  config: CombinedSyncConfig;
   autoSyncInterval: number;
+
+  // Transient state (not persisted)
+  status: SyncStatus;
   autoSyncTimer: number | null;
 
   // Actions
   initializeSync: () => Promise<void>;
-  updateConfig: (config: Partial<SyncConfig>) => Promise<void>;
+  updateConfig: (config: Partial<CombinedSyncConfig>) => Promise<void>;
   syncNow: () => Promise<void>;
   startAutoSync: () => void;
   stopAutoSync: () => void;
   getStatus: () => SyncStatus;
+  disconnect: () => void;
 }
 
-export const useSyncStore = create<SyncStore>((set, get) => ({
-  config: {
-    url: import.meta.env.VITE_WEBDAV_URL || '',
-    username: import.meta.env.VITE_WEBDAV_USERNAME || '',
-    password: import.meta.env.VITE_WEBDAV_PASSWORD || '',
-    remotePath: import.meta.env.VITE_WEBDAV_PATH || '/jpad-notes',
-    enabled: false,
-  },
-  status: {
-    lastSync: null,
-    syncing: false,
-    error: null,
-    filesUploaded: 0,
-    filesDownloaded: 0,
-  },
-  autoSyncInterval: parseInt(import.meta.env.VITE_SYNC_INTERVAL || '300') * 1000,
-  autoSyncTimer: null,
+const DEFAULT_STATUS: SyncStatus = {
+  lastSync: null,
+  syncing: false,
+  error: null,
+  filesUploaded: 0,
+  filesDownloaded: 0,
+};
 
-  initializeSync: async () => {
-    const { config } = get();
-    
-    // Check if sync is configured
-    if (!config.url || !config.username || !config.password) {
-      set({ config: { ...config, enabled: false } });
-      return;
-    }
+export const useSyncStore = create<SyncStore>()(
+  persist(
+    (set, get) => ({
+      config: {
+        mode: 'supabase' as SyncMode,
+        enabled: false,
+        webdav: {
+          url: '',
+          username: '',
+          password: '',
+          remotePath: '/jpad-notes',
+          enabled: false,
+        },
+        supabase: {
+          url: '',
+          anonKey: '',
+          bucket: 'jpad-notes',
+          enabled: false,
+        },
+      },
+      autoSyncInterval: 300000, // 5 minutes
 
-    try {
-      await syncService.initialize({ ...config, enabled: true });
-      set({ 
-        config: { ...config, enabled: true },
-        status: syncService.getStatus()
-      });
-      
-      // Start auto-sync if configured
-      if (get().autoSyncInterval > 0) {
-        get().startAutoSync();
-      }
-    } catch (error) {
-      console.error('Failed to initialize sync:', error);
-      set({ 
-        config: { ...config, enabled: false },
-        status: { ...get().status, error: String(error) }
-      });
-    }
-  },
+      // Transient (not persisted)
+      status: { ...DEFAULT_STATUS },
+      autoSyncTimer: null,
 
-  updateConfig: async (newConfig) => {
-    const { config } = get();
-    const updated = { ...config, ...newConfig };
-    
-    try {
-      await syncService.initialize(updated);
-      set({ config: updated, status: syncService.getStatus() });
-      
-      // Restart auto-sync if enabled
-      if (updated.enabled && get().autoSyncInterval > 0) {
+      initializeSync: async () => {
+        const { config } = get();
+
+        // If not enabled, do nothing
+        if (!config.enabled) {
+          set({ status: { ...DEFAULT_STATUS } });
+          return;
+        }
+
+        try {
+          if (config.mode === 'webdav') {
+            await syncService.initialize({ ...config.webdav, enabled: config.enabled });
+          } else {
+            await supabaseSyncService.initialize({ ...config.supabase, enabled: config.enabled });
+          }
+
+          set({
+            status: config.mode === 'webdav' ? syncService.getStatus() : supabaseSyncService.getStatus()
+          });
+
+          if (config.enabled && get().autoSyncInterval > 0) {
+            get().startAutoSync();
+          }
+        } catch (error) {
+          console.error('Failed to initialize sync:', error);
+          set({
+            status: { ...get().status, error: String(error) }
+          });
+        }
+      },
+
+      updateConfig: async (newConfig) => {
+        const { config } = get();
+        const updated = { ...config, ...newConfig };
+
+        // Merge nested objects properly
+        if (newConfig.webdav) {
+          updated.webdav = { ...config.webdav, ...newConfig.webdav };
+        }
+        if (newConfig.supabase) {
+          updated.supabase = { ...config.supabase, ...newConfig.supabase };
+        }
+
+        try {
+          if (updated.enabled) {
+            if (updated.mode === 'webdav') {
+              await syncService.initialize({ ...updated.webdav, enabled: updated.enabled });
+            } else {
+              await supabaseSyncService.initialize({ ...updated.supabase, enabled: updated.enabled });
+            }
+          }
+
+          set({
+            config: updated,
+            status: updated.enabled
+              ? (updated.mode === 'webdav' ? syncService.getStatus() : supabaseSyncService.getStatus())
+              : { ...DEFAULT_STATUS }
+          });
+
+          if (updated.enabled && get().autoSyncInterval > 0) {
+            get().stopAutoSync();
+            get().startAutoSync();
+          } else {
+            get().stopAutoSync();
+          }
+        } catch (error) {
+          console.error('Failed to update sync config:', error);
+          set({
+            status: { ...get().status, error: String(error) }
+          });
+          throw error;
+        }
+      },
+
+      syncNow: async () => {
+        const { notesRoot } = useStore.getState();
+        const { config } = get();
+
+        if (!config.enabled) {
+          throw new Error('Sync is not enabled');
+        }
+
+        try {
+          set({ status: { ...get().status, syncing: true, error: null } });
+
+          if (config.mode === 'webdav') {
+            await syncService.syncAll(notesRoot);
+          } else {
+            await supabaseSyncService.syncAll(notesRoot);
+          }
+
+          set({ status: config.mode === 'webdav' ? syncService.getStatus() : supabaseSyncService.getStatus() });
+          await useStore.getState().refreshFiles();
+        } catch (error) {
+          console.error('Sync failed:', error);
+          set({ status: { ...get().status, syncing: false, error: String(error) } });
+          throw error;
+        }
+      },
+
+      startAutoSync: () => {
+        const { autoSyncTimer, autoSyncInterval } = get();
+
+        // Clear existing timer
+        if (autoSyncTimer) {
+          clearInterval(autoSyncTimer);
+        }
+
+        // Start new timer
+        const timer = setInterval(() => {
+          const { config } = get();
+          if (config.enabled && !get().status.syncing) {
+            get().syncNow().catch(console.error);
+          }
+        }, autoSyncInterval);
+
+        set({ autoSyncTimer: timer as unknown as number });
+      },
+
+      stopAutoSync: () => {
+        const { autoSyncTimer } = get();
+        if (autoSyncTimer) {
+          clearInterval(autoSyncTimer);
+          set({ autoSyncTimer: null });
+        }
+      },
+
+      disconnect: () => {
         get().stopAutoSync();
-        get().startAutoSync();
-      }
-    } catch (error) {
-      console.error('Failed to update sync config:', error);
-      throw error;
+        set({
+          config: { ...get().config, enabled: false },
+          status: { ...DEFAULT_STATUS },
+        });
+      },
+
+      getStatus: () => get().status,
+    }),
+    {
+      name: 'jpad-sync-config',
+      // Only persist config and autoSyncInterval, NOT transient state
+      partialize: (state) => ({
+        config: state.config,
+        autoSyncInterval: state.autoSyncInterval,
+      }),
     }
-  },
-
-  syncNow: async () => {
-    const { notesRoot } = useStore.getState();
-    
-    try {
-      set({ status: { ...get().status, syncing: true, error: null } });
-      await syncService.syncAll(notesRoot);
-      set({ status: syncService.getStatus() });
-      
-      // Refresh file list after sync
-      await useStore.getState().refreshFiles();
-    } catch (error) {
-      console.error('Sync failed:', error);
-      set({ status: { ...get().status, syncing: false, error: String(error) } });
-      throw error;
-    }
-  },
-
-  startAutoSync: () => {
-    const { autoSyncTimer, autoSyncInterval } = get();
-    
-    // Clear existing timer
-    if (autoSyncTimer) {
-      clearInterval(autoSyncTimer);
-    }
-
-    // Start new timer
-    const timer = setInterval(() => {
-      const { config } = get();
-      if (config.enabled && !get().status.syncing) {
-        get().syncNow().catch(console.error);
-      }
-    }, autoSyncInterval);
-
-    set({ autoSyncTimer: timer });
-  },
-
-  stopAutoSync: () => {
-    const { autoSyncTimer } = get();
-    if (autoSyncTimer) {
-      clearInterval(autoSyncTimer);
-      set({ autoSyncTimer: null });
-    }
-  },
-
-  getStatus: () => get().status,
-}));
+  )
+);

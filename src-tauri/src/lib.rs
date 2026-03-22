@@ -5,7 +5,6 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use tauri::Manager;
 
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -234,14 +233,14 @@ fn delete_with_terminal(paths: Vec<String>) -> Result<(), String> {
             .arg(&script)
             .spawn()
             .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+        Ok(())
     }
     
     #[cfg(not(target_os = "macos"))]
     {
-        return Err("This command is only available on macOS".to_string());
+        let _ = paths;
+        Err("This command is only available on macOS".to_string())
     }
-    
-    Ok(())
 }
 
 #[tauri::command]
@@ -402,92 +401,47 @@ fn search_files(root_path: String, query: String) -> Result<Vec<SearchResult>, S
     Ok(results)
 }
 
+#[tauri::command]
+fn list_all_files(path: String) -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    let root = Path::new(&path);
+    
+    fn walk(dir: &Path, files: &mut Vec<String>) -> Result<(), String> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, files)?;
+                } else {
+                    files.push(path.to_string_lossy().to_string().replace('\\', "/"));
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    walk(root, &mut files)?;
+    Ok(files)
+}
+
+#[tauri::command]
+fn get_file_mtime(path: String) -> Result<u64, String> {
+    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let mtime = metadata.modified().map_err(|e| e.to_string())?;
+    let duration = mtime.duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?;
+    Ok(duration.as_millis() as u64)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
-        .setup(|app| {
-            // Get the main window
-            let window = app.get_webview_window("main").unwrap();
-            
-            // Show window after a brief delay to allow React to render
-            #[cfg(desktop)]
-            {
-                let window_clone = window.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_millis(150));
-                    
-                    // Linux fix: Setting window title to empty helps remove the "corner icon" 
-                    // artifact on some GNOME/GTK versions when decorations are disabled.
-                    #[cfg(target_os = "linux")]
-                    let _ = window_clone.set_title("");
-                    
-                    let _ = window_clone.show();
-                });
-            }
-            
-            // Apply macOS-specific window styling for rounded corners
-            #[cfg(target_os = "macos")]
-            {
-                use cocoa::appkit::{NSWindow, NSWindowStyleMask};
-                use cocoa::base::id;
-                
-                unsafe {
-                    let ns_window = window.ns_window().unwrap() as id;
-                    
-                    // Enable shadow
-                    ns_window.setHasShadow_(cocoa::base::YES);
-                    
-                    // Get the content view and set corner radius on its layer
-                    let content_view: id = ns_window.contentView();
-                    let _: () = msg_send![content_view, setWantsLayer: cocoa::base::YES];
-                    let layer: id = msg_send![content_view, layer];
-                    let _: () = msg_send![layer, setCornerRadius: 10.0_f64];
-                    let _: () = msg_send![layer, setMasksToBounds: cocoa::base::YES];
-                    
-                    // Enable full size content view
-                    let mut style_mask = ns_window.styleMask();
-                    style_mask |= NSWindowStyleMask::NSFullSizeContentViewWindowMask;
-                    ns_window.setStyleMask_(style_mask);
-                }
-            }
-            
-            // Setup tray icon with menu
-            #[cfg(desktop)]
-            {
-                let quit = tauri::menu::MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-                let show = tauri::menu::MenuItemBuilder::with_id("show", "Show").build(app)?;
-                let menu = tauri::menu::MenuBuilder::new(app)
-                    .item(&show)
-                    .separator()
-                    .item(&quit)
-                    .build()?;
-
-                let tray_icon = app.default_window_icon().unwrap().clone();
-
-                let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
-                    .icon(tray_icon)
-                    .menu(&menu)
-                    .on_menu_event(|app, event| match event.id().as_ref() {
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                        _ => {}
-                    })
-                    .build(app)?;
-            }
-            
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             list_files,
+            list_all_files,
+            get_file_mtime,
             read_file,
             write_file,
             create_file,

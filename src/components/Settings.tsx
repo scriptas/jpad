@@ -11,7 +11,9 @@ import {
     Sparkles,
     ChevronRight,
     FileText,
+    Cloud,
 } from "lucide-react";
+import SyncSettings from "./SyncSettings";
 import {
     useThemeStore,
     PRESET_THEMES,
@@ -353,7 +355,7 @@ function VimModeSetting() {
     );
 }
 
-type SettingsSection = "appearance" | "filename" | "vim";
+type SettingsSection = "appearance" | "filename" | "vim" | "cloud";
 
 export default function Settings() {
     const {
@@ -607,6 +609,24 @@ export default function Settings() {
                             >
                                 <span className="text-sm font-mono">{"</>"}</span>
                                 <span>Vim Mode</span>
+                            </button>
+
+                            <div className="my-2 border-t border-border/30" />
+
+                            <button
+                                onClick={() => {
+                                    setActiveSection("cloud");
+                                    if (editingTheme) handleCancelEdit();
+                                }}
+                                className={cn(
+                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
+                                    activeSection === "cloud"
+                                        ? "bg-primary/15 text-primary border border-primary/20"
+                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
+                                )}
+                            >
+                                <Cloud size={14} />
+                                <span>Cloud Sync</span>
                             </button>
                         </nav>
                     </div>
@@ -959,6 +979,19 @@ export default function Settings() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Cloud Sync Section */}
+                        {activeSection === "cloud" && (
+                            <div className="p-6">
+                                <div className="mb-6">
+                                    <h3 className="text-sm font-semibold text-text mb-2">Cloud Sync</h3>
+                                    <p className="text-xs text-text-muted/60">
+                                        Sync your notes across devices via Supabase or WebDAV
+                                    </p>
+                                </div>
+                                <SyncSettings />
                             </div>
                         )}
                     </div>
