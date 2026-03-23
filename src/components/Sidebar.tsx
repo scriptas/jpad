@@ -81,11 +81,18 @@ export default function Sidebar() {
         }
     }, [showFolderDialog]);
 
-    // Auto-focus renaming input
+    // Auto-focus renaming input and select the base name (before extension)
     useEffect(() => {
         if (renamingId && renameInputRef.current) {
             renameInputRef.current.focus();
-            renameInputRef.current.select();
+            const name = renameInputRef.current.value;
+            const dotIndex = name.lastIndexOf(".");
+            // Select just the base name; if no dot, select all
+            if (dotIndex > 0) {
+                renameInputRef.current.setSelectionRange(0, dotIndex);
+            } else {
+                renameInputRef.current.select();
+            }
         }
     }, [renamingId]);
 
@@ -246,8 +253,8 @@ export default function Sidebar() {
     const handleRenameStart = (node: FileNode, e?: React.MouseEvent) => {
         e?.stopPropagation();
         setRenamingId(node.id);
-        const nameWithoutExt = node.type === "file" ? node.name.replace(/\.jt$/, "") : node.name;
-        setRenamingName(nameWithoutExt);
+        // Show the full filename including extension so the user can change it freely
+        setRenamingName(node.name);
         setContextMenu(null);
     };
 
@@ -264,7 +271,8 @@ export default function Sidebar() {
         }
 
         const parentPath = renamingId.substring(0, renamingId.lastIndexOf("/"));
-        const newName = node.type === "file" ? `${renamingName.trim()}.jt` : renamingName.trim();
+        // Use the name exactly as typed – the user controls the extension
+        const newName = renamingName.trim();
         const newPath = `${parentPath}/${newName}`;
 
         if (renamingId === newPath) {
@@ -642,7 +650,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
-                    v1.5.0
+                    v1.6.0
                 </div>
             </div>
 
