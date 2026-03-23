@@ -1,0 +1,51 @@
+name: "Android Release"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          npm install
+
+      - name: install tauri android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: get version
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: build tauri android
+        run: npm run tauri android build -- --debug
+
+      - name: upload release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: src-tauri/gen/android/app/build/outputs/apk/debug/*.apk
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: JPad v${{ steps.version.outputs.VERSION }}
+          draft: true
+          body: "Android development build (.apk)"

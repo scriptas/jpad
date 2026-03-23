@@ -244,22 +244,22 @@ class SupabaseSyncService {
       // Step 3: Check Bucket & Permissions (Combined)
       // We don't use getBucket() because it requires admin-level (service_role) permissions.
       // Instead, we try to list files. If the bucket doesn't exist, Supabase returns a 404 or specific error.
-      const { data: listData, error: listError } = await client.storage.from(config.bucket).list('', { limit: 1 });
-      
+      const { error: listError } = await client.storage.from(config.bucket).list('', { limit: 1 });
+
       if (listError) {
         if (listError.message?.includes('not found') || (listError as any).status === 404) {
-          steps.push({ 
-            name: 'Check Bucket', 
-            status: 'error', 
-            message: `Bucket "${config.bucket}" not found. Please double-check the name in your Supabase dashboard.` 
+          steps.push({
+            name: 'Check Bucket',
+            status: 'error',
+            message: `Bucket "${config.bucket}" not found. Please double-check the name in your Supabase dashboard.`
           });
           return { success: false, steps };
         }
-        
-        steps.push({ 
-          name: 'Check Permissions', 
-          status: 'error', 
-          message: `Permission denied: ${listError.message}. Make sure RLS is configured to allow access to the "${config.bucket}" bucket.` 
+
+        steps.push({
+          name: 'Check Permissions',
+          status: 'error',
+          message: `Permission denied: ${listError.message}. Make sure RLS is configured to allow access to the "${config.bucket}" bucket.`
         });
         return { success: false, steps };
       }
