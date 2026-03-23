@@ -1,21 +1,26 @@
 import {
     ChevronDown,
     ChevronRight,
-    FileText,
     Folder,
     FolderOpen,
     Search,
     FilePlus,
     FolderPlus,
     Settings as SettingsIcon,
+    Trash2,
+    Pencil,
+    MoreVertical,
+    ExternalLink,
     X,
 } from "lucide-react";
-import { useStore, FileNode } from "../store/useStore";
+import { getFileIconForName } from "./FileIcons";
+import { useStore, FileNode, findFileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { platform } from "@tauri-apps/plugin-os";
+import { invoke } from "@tauri-apps/api/core";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -35,6 +40,9 @@ export default function Sidebar() {
         isSearching,
         searchFiles,
         clearSearch,
+        deletePath,
+        deletePaths,
+        renamePath,
     } = useStore();
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -51,6 +59,18 @@ export default function Sidebar() {
     const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const renameInputRef = useRef<HTMLInputElement>(null);
+
+    const [contextMenu, setContextMenu] = useState<{
+        x: number;
+        y: number;
+        node: FileNode;
+    } | null>(null);
+
+    const [renamingId, setRenamingId] = useState<string | null>(null);
+    const [renamingName, setRenamingName] = useState("");
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState<FileNode | null>(null);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
     const isMobile = platform() === "android" || platform() === "ios";
 
@@ -60,6 +80,23 @@ export default function Sidebar() {
             folderInputRef.current.focus();
         }
     }, [showFolderDialog]);
+
+    // Auto-focus renaming input
+    useEffect(() => {
+        if (renamingId && renameInputRef.current) {
+            renameInputRef.current.focus();
+            renameInputRef.current.select();
+        }
+    }, [renamingId]);
+
+    // Close context menu on click outside
+    useEffect(() => {
+        const handleClickOutside = () => setContextMenu(null);
+        if (contextMenu) {
+            window.addEventListener("click", handleClickOutside);
+        }
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, [contextMenu]);
 
     // Debounced search
     useEffect(() => {
@@ -206,6 +243,85 @@ export default function Sidebar() {
         }
     };
 
+    const handleRenameStart = (node: FileNode, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setRenamingId(node.id);
+        const nameWithoutExt = node.type === "file" ? node.name.replace(/\.jt$/, "") : node.name;
+        setRenamingName(nameWithoutExt);
+        setContextMenu(null);
+    };
+
+    const handleRenameSubmit = async () => {
+        if (!renamingId || !renamingName.trim()) {
+            setRenamingId(null);
+            return;
+        }
+
+        const node = findFileNode(files, renamingId);
+        if (!node) {
+            setRenamingId(null);
+            return;
+        }
+
+        const parentPath = renamingId.substring(0, renamingId.lastIndexOf("/"));
+        const newName = node.type === "file" ? `${renamingName.trim()}.jt` : renamingName.trim();
+        const newPath = `${parentPath}/${newName}`;
+
+        if (renamingId === newPath) {
+            setRenamingId(null);
+            return;
+        }
+
+        try {
+            await renamePath(renamingId, newPath);
+            setRenamingId(null);
+        } catch (error) {
+            console.error("Failed to rename:", error);
+        }
+    };
+
+    const handleDelete = async (node: FileNode) => {
+        try {
+            await deletePath(node.id);
+            setShowDeleteConfirm(null);
+            const newSelected = new Set(selectedFiles);
+            newSelected.delete(node.id);
+            setSelectedFiles(newSelected);
+        } catch (error) {
+            console.error("Failed to delete:", error);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        try {
+            await deletePaths(Array.from(selectedFiles));
+            setSelectedFiles(new Set());
+            setShowBulkDeleteConfirm(false);
+        } catch (error) {
+            console.error("Failed to delete multiple:", error);
+        }
+    };
+
+    const handleReveal = async (node: FileNode, event: React.MouseEvent) => {
+        event.stopPropagation();
+        try {
+            await invoke("reveal_path", { path: node.id });
+            setContextMenu(null);
+        } catch (error) {
+            console.error("Failed to reveal path:", error);
+        }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            node
+        });
+    };
+
     const getAllFileIds = (nodes: FileNode[]): string[] => {
         const ids: string[] = [];
         const traverse = (nodeList: FileNode[]) => {
@@ -280,8 +396,8 @@ export default function Sidebar() {
         []
     );
 
-    const getFileIcon = (_name: string) => {
-        return <FileText size={isMobile ? 18 : 14} className="mr-1.5 text-primary" />;
+    const getFileIcon = (name: string) => {
+        return getFileIconForName(name, isMobile ? 18 : 14, "mr-1.5 flex-shrink-0");
     };
 
     const renderTree = (nodes: FileNode[], depth = 0) => {
@@ -315,6 +431,7 @@ export default function Sidebar() {
                         )}
                         style={{ paddingLeft: `${depth * 16 + 8}px` }}
                         onClick={(e) => handleFileClick(node, e)}
+                        onContextMenu={(e) => handleContextMenu(e, node)}
                     >
                         <div className="flex items-center flex-1 min-w-0">
                             {node.type === "folder" ? (
@@ -336,13 +453,41 @@ export default function Sidebar() {
                                     {getFileIcon(node.name)}
                                 </>
                             )}
-                            <span className={cn(
-                                isMobile ? "text-[16px]" : "text-[13px] truncate",
-                                isActive ? "font-semibold" : "font-normal"
-                            )}>
-                                {node.name}
-                            </span>
+                            {renamingId === node.id ? (
+                                <input
+                                    ref={renameInputRef}
+                                    type="text"
+                                    value={renamingName}
+                                    onChange={(e) => setRenamingName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleRenameSubmit();
+                                        if (e.key === "Escape") setRenamingId(null);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onBlur={handleRenameSubmit}
+                                    className="bg-surface border border-primary/40 rounded px-1 py-0.5 text-[13px] w-full focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                />
+                            ) : (
+                                <span className={cn(
+                                    isMobile ? "text-[16px]" : "text-[13px] truncate",
+                                    isActive ? "font-semibold" : "font-normal"
+                                )}>
+                                    {node.name}
+                                </span>
+                            )}
                         </div>
+
+                        {!isMobile && !renamingId && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setContextMenu({ x: e.clientX, y: e.clientY, node });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-hover rounded-md transition-all text-text-muted hover:text-primary z-10"
+                            >
+                                <MoreVertical size={14} />
+                            </button>
+                        )}
                     </div>
                     {node.type === "folder" && isExpanded && node.children && (
                         <div className="overflow-hidden">
@@ -426,6 +571,15 @@ export default function Sidebar() {
                     </>
                 )}
                 <div className="flex items-center gap-2">
+                    {selectedFiles.size > 0 && (
+                        <button
+                            onClick={() => setShowBulkDeleteConfirm(true)}
+                            className="p-2 hover:bg-red-500/20 text-red-400 rounded-xl transition-all border border-red-500/30"
+                            title={`Delete ${selectedFiles.size} items`}
+                        >
+                            <Trash2 size={isMobile ? 22 : 14} />
+                        </button>
+                    )}
                     <button
                         onClick={() => handleCreateFile()}
                         className="p-2 hover:bg-surface-hover rounded-xl transition-all border border-border/50"
@@ -488,7 +642,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
-                    v1.3.0
+                    v1.5.0
                 </div>
             </div>
 
@@ -511,7 +665,7 @@ export default function Sidebar() {
             {showFolderDialog && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowFolderDialog(false)} />
-                    <div className="relative w-full max-w-md bg-sidebar/95 border-2 border-primary/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+                    <div className="relative w-full max-md bg-sidebar/95 border-2 border-primary/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
                         <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <FolderPlus size={20} className="text-primary" />
                             Create New Folder
@@ -537,6 +691,112 @@ export default function Sidebar() {
                                 className="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                             >
                                 Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Context Menu */}
+            {contextMenu && (
+                <div
+                    className="fixed z-[300] bg-surface border-2 border-border rounded-xl shadow-2xl py-1.5 w-48 animate-in backdrop-blur-md bg-surface/95"
+                    style={{ left: Math.min(contextMenu.x, window.innerWidth - 200), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        onClick={(e) => { e.stopPropagation(); handleRenameStart(contextMenu.node); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                    >
+                        <Pencil size={14} className="text-primary" />
+                        Rename
+                    </button>
+                    <button
+                        onClick={(e) => handleReveal(contextMenu.node, e)}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                    >
+                        <ExternalLink size={14} className="text-primary" />
+                        Reveal in Explorer
+                    </button>
+                    <div className="h-[1px] bg-border my-1.5 mx-2" />
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedFiles.has(contextMenu.node.id) && selectedFiles.size > 1) {
+                                setShowBulkDeleteConfirm(true);
+                            } else {
+                                setShowDeleteConfirm(contextMenu.node);
+                            }
+                            setContextMenu(null);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-sm transition-colors"
+                    >
+                        <Trash2 size={14} />
+                        {selectedFiles.has(contextMenu.node.id) && selectedFiles.size > 1
+                            ? `Delete Selected (${selectedFiles.size})`
+                            : 'Delete'}
+                    </button>
+                </div>
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(null)} />
+                    <div className="relative w-full max-w-sm bg-sidebar/95 border-2 border-primary/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+                        <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-red-400">
+                            <Trash2 size={20} />
+                            Delete {showDeleteConfirm.type === 'folder' ? 'Folder' : 'File'}?
+                        </h2>
+                        <p className="text-sm text-text-muted mb-6 leading-relaxed">
+                            Are you sure you want to delete <span className="font-bold text-text">"{showDeleteConfirm.name}"</span>?
+                            {showDeleteConfirm.type === 'folder' && " This will permanently delete all files inside."}
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteConfirm(null)}
+                                className="flex-1 px-4 py-3 rounded-xl border-2 border-border font-semibold hover:bg-surface-hover transition-all text-text"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDelete(showDeleteConfirm)}
+                                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Delete Confirmation Dialog */}
+            {showBulkDeleteConfirm && (
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowBulkDeleteConfirm(false)} />
+                    <div className="relative w-full max-w-sm bg-sidebar/95 border-2 border-primary/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+                        <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-red-400">
+                            <Trash2 size={20} />
+                            Delete {selectedFiles.size} items?
+                        </h2>
+                        <p className="text-sm text-text-muted mb-6 leading-relaxed">
+                            Are you sure you want to delete <span className="font-bold text-text">{selectedFiles.size}</span> items?
+                            This will permanently delete all selected files and folders.
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowBulkDeleteConfirm(false)}
+                                className="flex-1 px-4 py-3 rounded-xl border-2 border-border font-semibold hover:bg-surface-hover transition-all text-text"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                            >
+                                Delete All
                             </button>
                         </div>
                     </div>

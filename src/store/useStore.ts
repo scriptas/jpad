@@ -49,6 +49,7 @@ interface AppState {
     createFile: (path: string) => Promise<void>;
     createFolder: (path: string) => Promise<void>;
     deletePath: (path: string) => Promise<void>;
+    deletePaths: (paths: string[]) => Promise<void>;
     renamePath: (oldPath: string, newPath: string) => Promise<void>;
     movePath: (oldPath: string, newPath: string) => Promise<void>;
     setEditorContent: (content: string) => void;
@@ -91,13 +92,13 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ notesRoot });
             }
             const files = await invoke<FileNode[]>("list_files", { path: notesRoot });
-            
+
             // Check if the currently active file still exists
             if (activeFileId && !findFileNode(files, activeFileId)) {
                 // Active file was deleted externally, clear it
                 set({ activeFileId: null, editorContent: "" });
             }
-            
+
             set({ files });
         } catch (error) {
             console.error("Failed to list files:", error);
@@ -114,14 +115,14 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isSaving: true });
         try {
             await invoke("write_file", { path: activeFileId, content });
-            
+
             // Push to cloud if enabled
             const { useSyncStore } = await import("./useSyncStore");
             const { config } = useSyncStore.getState();
             if (config.enabled) {
                 const { syncService } = await import("../services/syncService");
                 const { supabaseSyncService } = await import("../services/supabaseService");
-                
+
                 if (config.mode === "webdav") {
                     await syncService.pushFile(notesRoot, activeFileId);
                 } else {
@@ -170,17 +171,30 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    deletePath: async (path) => {
+    deletePath: async (path: string) => {
         try {
             await invoke("delete_path", { path });
-            // If the deleted file was the active one, clear selection
-            const { activeFileId } = get();
+            const { activeFileId, setActiveFileId, refreshFiles } = get();
+            await refreshFiles();
             if (activeFileId === path) {
-                set({ activeFileId: null, editorContent: "" });
+                setActiveFileId(null);
             }
-            await get().refreshFiles();
         } catch (error) {
-            console.error("Failed to delete:", error);
+            console.error("Failed to delete path:", error);
+            throw error;
+        }
+    },
+    deletePaths: async (paths: string[]) => {
+        try {
+            await invoke("delete_paths", { paths });
+            const { activeFileId, setActiveFileId, refreshFiles } = get();
+            await refreshFiles();
+            if (activeFileId && paths.includes(activeFileId)) {
+                setActiveFileId(null);
+            }
+        } catch (error) {
+            console.error("Failed to delete paths:", error);
+            throw error;
         }
     },
 
@@ -212,7 +226,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     setEditorContent: (content) => set({ editorContent: content }),
-    
+
     setSelectedContent: (content) => set({ selectedContent: content }),
 
     searchFiles: async (query) => {
@@ -221,7 +235,7 @@ export const useStore = create<AppState>((set, get) => ({
             set({ searchResults: [], isSearching: false });
             return;
         }
-        
+
         set({ isSearching: true });
         try {
             const results = await invoke<SearchResult[]>("search_files", {
@@ -236,6 +250,6 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     clearSearch: () => set({ searchResults: [], isSearching: false }),
-    
+
     setVimState: (state) => set({ vimState: state }),
 }));

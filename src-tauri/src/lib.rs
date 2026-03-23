@@ -138,6 +138,22 @@ fn delete_path(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_paths(paths: Vec<String>) -> Result<(), String> {
+    for path in paths {
+        let p = Path::new(&path);
+        if !p.exists() {
+            continue;
+        }
+        if p.is_dir() {
+            fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete folder '{}': {}", path, e))?;
+        } else {
+            fs::remove_file(&path).map_err(|e| format!("Failed to delete file '{}': {}", path, e))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
     let old = Path::new(&old_path);
     if !old.exists() {
@@ -447,6 +463,7 @@ pub fn run() {
             create_file,
             create_folder,
             delete_path,
+            delete_paths,
             rename_path,
             get_notes_root,
             reveal_path,
