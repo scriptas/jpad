@@ -648,8 +648,8 @@ export default function Editor() {
     const currentHighlight = editor?.getAttributes("highlight")?.color || "";
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/30 backdrop-blur-sm sticky top-0 z-10 flex-wrap">
+        <div className="flex-1 flex flex-col overflow-hidden bg-background min-h-0">
+            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/30 backdrop-blur-sm z-10 flex-wrap flex-shrink-0">
                 <ToolbarButton
                     onClick={() => editor?.chain().focus().undo().run()}
                     title="Undo (Ctrl+Z)"
@@ -846,7 +846,7 @@ export default function Editor() {
                 className="hidden"
             />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-16 lg:px-32 pb-20">
+            <div className="flex-1 overflow-y-auto px-6 md:px-16 lg:px-32 pb-20 min-h-0">
                 <EditorContent editor={editor} />
             </div>
         </div>

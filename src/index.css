@@ -17,9 +17,16 @@
 }
 
 @layer base {
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-background text-text font-sans antialiased;
     overflow: hidden;
+    height: 100%;
+    overscroll-behavior: none;
     font-feature-settings: "cv01", "cv02", "cv03";
   }
 

@@ -53,6 +53,23 @@ export default function App() {
       });
     }
 
+    // On mobile, listen to visualViewport resize so that the soft keyboard
+    // shrinks the layout instead of panning the whole page upward.
+    let vpHandler: (() => void) | undefined;
+    if (mobile && window.visualViewport) {
+      vpHandler = () => {
+        const vp = window.visualViewport!;
+        document.documentElement.style.height = `${vp.height}px`;
+        document.body.style.height = `${vp.height}px`;
+        // Scroll back to top in case the browser panned
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      };
+      window.visualViewport.addEventListener("resize", vpHandler);
+      window.visualViewport.addEventListener("scroll", vpHandler);
+      // Set initial value
+      vpHandler();
+    }
+
     // Periodic file system refresh to detect external changes
     const refreshInterval = setInterval(() => {
       refreshFiles();
@@ -67,6 +84,10 @@ export default function App() {
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener("focus", handleFocus);
+      if (vpHandler && window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", vpHandler);
+        window.visualViewport.removeEventListener("scroll", vpHandler);
+      }
     };
   }, [refreshFiles]);
 
@@ -213,7 +234,7 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-full bg-background text-text overflow-hidden",
+      "flex flex-col h-full w-full bg-background text-text overflow-hidden",
       isMobile ? "border-[8px] border-border" : "border-2 border-border",
       isMacOS ? "rounded-[10px]" : isMobile ? "rounded-none" : "rounded-[8px]"
     )}>
@@ -390,8 +411,8 @@ export default function App() {
           </>
         )}
 
-        <main className="flex-1 flex flex-col h-full overflow-hidden bg-background relative">
-          <div className="flex-1 overflow-hidden relative">
+        <main className="flex-1 flex flex-col overflow-hidden bg-background relative min-h-0">
+          <div className="flex-1 overflow-hidden relative min-h-0">
             <Editor />
           </div>
           <StatusBar />
