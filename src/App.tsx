@@ -24,9 +24,9 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function App() {
-  const { sidebarVisible, toggleSidebar, refreshFiles, activeFileId, files } =
+  const { sidebarVisible, toggleSidebar, refreshFiles, activeFileId, files, setActiveFileId, setSidebarVisible } =
     useStore();
-  const { settingsOpen } = useThemeStore();
+  const { settingsOpen, showNeonBorder } = useThemeStore();
   const { initializeSync } = useSyncStore();
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isResizing, setIsResizing] = useState(false);
@@ -36,6 +36,21 @@ export default function App() {
   const appWindowRef = useRef<any>(null);
 
   const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
+
+  // Handle 'file' query parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fileToOpen = params.get("file");
+    if (fileToOpen) {
+      const decodedPath = decodeURIComponent(fileToOpen);
+      setActiveFileId(decodedPath);
+    }
+
+    const showSidebar = params.get("sidebar");
+    if (showSidebar === "false") {
+      setSidebarVisible(false);
+    }
+  }, [setActiveFileId, setSidebarVisible]);
 
   useEffect(() => {
     refreshFiles();
@@ -235,7 +250,9 @@ export default function App() {
   return (
     <div className={cn(
       "flex flex-col h-screen w-screen bg-background/85 text-text overflow-hidden backdrop-blur-xl transition-all duration-500",
-      isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]",
+      showNeonBorder
+        ? (isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]")
+        : (isMobile ? "border-none" : "border border-border/30"),
       isMacOS ? "rounded-[12px]" : isMobile ? "rounded-none" : "rounded-[10px]"
     )}>
       {/* Custom Title Bar */}

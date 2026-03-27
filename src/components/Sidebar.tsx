@@ -209,6 +209,36 @@ export default function Sidebar() {
         }
     };
 
+    const handleDragEnd = async (e: React.DragEvent, id: string) => {
+        setDraggedId(null);
+        
+        // Check if the drop happened outside the window
+        const isOutside = 
+            e.clientX <= 0 || 
+            e.clientY <= 0 || 
+            e.clientX >= window.innerWidth || 
+            e.clientY >= window.innerHeight;
+
+        // If dropEffect is 'none' and it's outside the window, it was dropped outside
+        if (e.dataTransfer.dropEffect === "none" || isOutside) {
+            const pathsToOpen = selectedFiles.has(id) 
+                ? Array.from(selectedFiles) 
+                : [id];
+
+            for (const path of pathsToOpen) {
+                const node = findFileNode(files, path);
+                // Only open files in new window, not folders
+                if (node && node.type === "file") {
+                    try {
+                        await invoke("open_in_new_window", { path });
+                    } catch (error) {
+                        console.error("Failed to open in new window:", error);
+                    }
+                }
+            }
+        }
+    };
+
     const handleDragOver = (e: React.DragEvent, node: FileNode) => {
         if (node.type !== "folder" || node.id === draggedId) return;
         e.preventDefault();
@@ -505,6 +535,7 @@ export default function Sidebar() {
                         draggable
                         data-folder-id={node.type === "folder" ? node.id : undefined}
                         onDragStart={(e) => handleDragStart(e, node.id)}
+                        onDragEnd={(e) => handleDragEnd(e, node.id)}
                         onDragOver={(e) => handleDragOver(e, node)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, node)}

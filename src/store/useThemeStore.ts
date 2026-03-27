@@ -209,6 +209,7 @@ interface ThemeState {
     activeThemeId: string;
     customThemes: Theme[];
     settingsOpen: boolean;
+    showNeonBorder: boolean;
 
     // Actions
     setActiveTheme: (id: string) => void;
@@ -218,6 +219,7 @@ interface ThemeState {
     renameCustomTheme: (id: string, name: string) => void;
     toggleSettings: () => void;
     setSettingsOpen: (open: boolean) => void;
+    setShowNeonBorder: (show: boolean) => void;
     getActiveTheme: () => Theme;
     getAllThemes: () => Theme[];
 }
@@ -228,6 +230,7 @@ export const useThemeStore = create<ThemeState>()(
             activeThemeId: "cyberpunk-vibe",
             customThemes: [],
             settingsOpen: false,
+            showNeonBorder: false,
 
             setActiveTheme: (id) => {
                 set({ activeThemeId: id });
@@ -268,6 +271,8 @@ export const useThemeStore = create<ThemeState>()(
 
             setSettingsOpen: (open) => set({ settingsOpen: open }),
 
+            setShowNeonBorder: (show) => set({ showNeonBorder: show }),
+
             getActiveTheme: () => {
                 const { activeThemeId, customThemes } = get();
                 return (
@@ -286,6 +291,7 @@ export const useThemeStore = create<ThemeState>()(
             partialize: (state) => ({
                 activeThemeId: state.activeThemeId,
                 customThemes: state.customThemes,
+                showNeonBorder: state.showNeonBorder,
             }),
         }
     )

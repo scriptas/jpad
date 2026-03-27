@@ -520,6 +520,33 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
     Ok(duration.as_millis() as u64)
 }
 
+#[tauri::command]
+async fn open_in_new_window(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let label = format!("window-{}", timestamp);
+    
+    // Simple URL encoding for the path
+    let encoded_path = path.replace('%', "%25")
+        .replace(' ', "%20")
+        .replace('?', "%3F")
+        .replace('#', "%23")
+        .replace('&', "%26")
+        .replace('=', "%3D");
+    
+    let url = format!("index.html?file={}&sidebar=false", encoded_path);
+    
+    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
+        .title(format!("JPad - {}", path))
+        .inner_size(1000.0, 700.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -542,6 +569,7 @@ pub fn run() {
             read_file_base64,
             delete_with_terminal,
             search_files,
+            open_in_new_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

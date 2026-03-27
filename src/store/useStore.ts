@@ -46,6 +46,7 @@ interface AppState {
     refreshFiles: () => Promise<void>;
     setActiveFileId: (id: string | null) => void;
     toggleSidebar: () => void;
+    setSidebarVisible: (visible: boolean) => void;
     saveActiveFile: (content: string) => Promise<void>;
     loadFileContent: (id: string) => Promise<string>;
     createFile: (path: string) => Promise<void>;
@@ -124,6 +125,8 @@ export const useStore = create<AppState>((set, get) => ({
     setActiveFileId: (id) => set({ activeFileId: id }),
 
     toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
+
+    setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
     saveActiveFile: async (content) => {
         const { activeFileId, notesRoot } = get();
