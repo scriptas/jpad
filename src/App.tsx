@@ -110,22 +110,38 @@ export default function App() {
   useEffect(() => {
     if (isMobile) return;
 
-    let unlisten: (() => void) | undefined;
-    (async () => {
-      const checkAndListen = async () => {
-        if (appWindowRef.current) {
-          setIsMaximized(await appWindowRef.current.isMaximized());
-          unlisten = await appWindowRef.current.onResized(async () => {
-            setIsMaximized(await appWindowRef.current.isMaximized());
-          });
-        } else if (!isMobile) {
-          setTimeout(checkAndListen, 500);
-        }
-      };
-      checkAndListen();
-    })();
+    let unlistenResized: (() => void) | undefined;
+    let unlistenMaximized: (() => void) | undefined;
+    let unlistenUnmaximized: (() => void) | undefined;
+
+    const setupListeners = async () => {
+      if (appWindowRef.current) {
+        setIsMaximized(await appWindowRef.current.isMaximized());
+
+        // Use specific maximize/unmaximize events for better performance
+        unlistenMaximized = await appWindowRef.current.listen("tauri://window/maximized", () => {
+          setIsMaximized(true);
+        });
+        unlistenUnmaximized = await appWindowRef.current.listen("tauri://window/unmaximized", () => {
+          setIsMaximized(false);
+        });
+
+        // Also keep onResized as a fallback but we can't easily avoid it
+        unlistenResized = await appWindowRef.current.onResized(async () => {
+          const maximized = await appWindowRef.current.isMaximized();
+          setIsMaximized(maximized);
+        });
+      } else {
+        setTimeout(setupListeners, 500);
+      }
+    };
+
+    setupListeners();
+
     return () => {
-      unlisten?.();
+      unlistenResized?.();
+      unlistenMaximized?.();
+      unlistenUnmaximized?.();
     };
   }, [isMobile]);
 
@@ -249,19 +265,21 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-screen bg-background/85 text-text overflow-hidden backdrop-blur-xl transition-all duration-500",
-      showNeonBorder
+      "flex flex-col h-screen w-screen bg-background/85 text-text overflow-hidden",
+      !isMacOS && "backdrop-blur-xl", // Native vibrancy used on macOS instead
+      (showNeonBorder && !isMaximized)
         ? (isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]")
-        : (isMobile ? "border-none" : "border border-border/30"),
-      isMacOS ? "rounded-[12px]" : isMobile ? "rounded-none" : "rounded-[10px]"
+        : (isMobile || isMaximized ? "border-none" : "border border-border/30"),
+      isMaximized || isMobile ? "rounded-none" : (isMacOS ? "rounded-[12px]" : "rounded-[10px]")
     )}>
       {/* Custom Title Bar */}
     <div
         ref={titleBarRef}
         className={cn(
-          "flex items-center bg-sidebar/60 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden backdrop-blur-md",
+          "flex items-center bg-sidebar/60 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden",
+          !isMacOS && "backdrop-blur-md",
           isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-11",
-          isMacOS ? "rounded-t-[12px]" : isMobile ? "rounded-none" : "rounded-t-[10px]"
+          isMaximized || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
         )}
       >
         {isMobile ? (

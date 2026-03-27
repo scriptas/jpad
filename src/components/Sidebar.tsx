@@ -11,6 +11,7 @@ import {
     Pencil,
     MoreVertical,
     ExternalLink,
+    Maximize2,
     X,
 } from "lucide-react";
 import { getFileIconForName } from "./FileIcons";
@@ -423,6 +424,16 @@ export default function Sidebar() {
             setContextMenu(null);
         } catch (error) {
             console.error("Failed to reveal path:", error);
+        }
+    };
+
+    const handlePopOut = async (node: FileNode, event: React.MouseEvent) => {
+        event.stopPropagation();
+        try {
+            await invoke("open_in_new_window", { path: node.id });
+            setContextMenu(null);
+        } catch (error) {
+            console.error("Failed to open in new window:", error);
         }
     };
 
@@ -878,6 +889,15 @@ export default function Sidebar() {
                         <ExternalLink size={14} className="text-primary" />
                         Reveal in Explorer
                     </button>
+                    {!isMobile && contextMenu.node.type === "file" && (
+                        <button
+                            onClick={(e) => handlePopOut(contextMenu.node, e)}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                        >
+                            <Maximize2 size={14} className="text-primary" />
+                            Pop in separate window
+                        </button>
+                    )}
                     <div className="h-[1px] bg-border my-1.5 mx-2" />
                     <button
                         onClick={(e) => {

@@ -542,6 +542,8 @@ async fn open_in_new_window(app: tauri::AppHandle, path: String) -> Result<(), S
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
         .title(format!("JPad - {}", path))
         .inner_size(1000.0, 700.0)
+        .decorations(false)
+        .transparent(true)
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -552,6 +554,31 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
+        .setup(|_app| {
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::Manager;
+                if let Some(window) = _app.get_webview_window("main") {
+                    let ns_window = window.ns_window().unwrap() as cocoa::base::id;
+                    unsafe {
+                        use cocoa::appkit::{NSWindow, NSWindowTitleVisibility, NSWindowStyleMask};
+                        
+                        // This helps with the maximization issue on some macOS versions
+                        ns_window.setTitleVisibility_(NSWindowTitleVisibility::NSWindowTitleHidden);
+                        ns_window.setTitlebarAppearsTransparent_(cocoa::base::YES);
+                        
+                        // Set shadow
+                        let _: () = msg_send![ns_window, setHasShadow: cocoa::base::YES];
+                        
+                        // Make the window content fill the whole window including the title bar area
+                        // This often fixes the "stuck off top" issue for frameless windows
+                        let style_mask = ns_window.styleMask();
+                        ns_window.setStyleMask_(style_mask | NSWindowStyleMask::NSFullSizeContentViewWindowMask);
+                    }
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_files,
             list_all_files,
