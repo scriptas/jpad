@@ -30,6 +30,10 @@
     font-feature-settings: "cv01", "cv02", "cv03";
   }
 
+  #root {
+    height: 100%;
+  }
+
   /* Custom scrollbar — thin & warm */
   ::-webkit-scrollbar {
     width: 6px;

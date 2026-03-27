@@ -39,6 +39,8 @@ interface AppState {
     searchResults: SearchResult[];
     isSearching: boolean;
     vimState: VimState | null;
+    selectedFiles: Set<string>;
+    lastSelectedId: string | null;
 
     // Actions
     refreshFiles: () => Promise<void>;
@@ -57,6 +59,9 @@ interface AppState {
     searchFiles: (query: string) => Promise<void>;
     clearSearch: () => void;
     setVimState: (state: VimState | null) => void;
+    setSelectedFiles: (files: Set<string>) => void;
+    setLastSelectedId: (id: string | null) => void;
+    clearSelection: () => void;
 }
 
 /** Helper to find a file node recursively. */
@@ -82,6 +87,8 @@ export const useStore = create<AppState>((set, get) => ({
     searchResults: [],
     isSearching: false,
     vimState: null,
+    selectedFiles: new Set<string>(),
+    lastSelectedId: null,
 
     refreshFiles: async () => {
         let { notesRoot, activeFileId } = get();
@@ -94,12 +101,21 @@ export const useStore = create<AppState>((set, get) => ({
             const files = await invoke<FileNode[]>("list_files", { path: notesRoot });
 
             // Check if the currently active file still exists
-            if (activeFileId && !findFileNode(files, activeFileId)) {
-                // Active file was deleted externally, clear it
-                set({ activeFileId: null, editorContent: "" });
+            const nextActiveId = activeFileId && findFileNode(files, activeFileId) ? activeFileId : null;
+            if (activeFileId && !nextActiveId) {
+                set({ editorContent: "" });
             }
 
-            set({ files });
+            // Sync selectedFiles
+            const { selectedFiles } = get();
+            const nextSelected = new Set<string>();
+            selectedFiles.forEach((id) => {
+                if (findFileNode(files, id)) {
+                    nextSelected.add(id);
+                }
+            });
+
+            set({ files, activeFileId: nextActiveId, selectedFiles: nextSelected });
         } catch (error) {
             console.error("Failed to list files:", error);
         }
@@ -201,10 +217,13 @@ export const useStore = create<AppState>((set, get) => ({
     renamePath: async (oldPath, newPath) => {
         try {
             await invoke("rename_path", { oldPath, newPath });
-            // If the renamed file was active, update the active ID
+            // If the renamed path was the active file or a parent folder of the active file
             const { activeFileId } = get();
             if (activeFileId === oldPath) {
                 set({ activeFileId: newPath });
+            } else if (activeFileId?.startsWith(oldPath + "/")) {
+                const updatedPath = activeFileId.replace(oldPath, newPath);
+                set({ activeFileId: updatedPath });
             }
             await get().refreshFiles();
         } catch (error) {
@@ -252,4 +271,10 @@ export const useStore = create<AppState>((set, get) => ({
     clearSearch: () => set({ searchResults: [], isSearching: false }),
 
     setVimState: (state) => set({ vimState: state }),
+
+    setSelectedFiles: (files) => set({ selectedFiles: files }),
+
+    setLastSelectedId: (id) => set({ lastSelectedId: id }),
+
+    clearSelection: () => set({ selectedFiles: new Set(), lastSelectedId: null }),
 }));

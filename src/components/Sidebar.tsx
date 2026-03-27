@@ -43,6 +43,11 @@ export default function Sidebar() {
         deletePath,
         deletePaths,
         renamePath,
+        selectedFiles,
+        setSelectedFiles,
+        lastSelectedId,
+        setLastSelectedId,
+        clearSelection,
     } = useStore();
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -55,8 +60,6 @@ export default function Sidebar() {
     const [touchIndicatorPos, setTouchIndicatorPos] = useState({ x: 0, y: 0 });
     const [folderDialogParentPath, setFolderDialogParentPath] = useState<string | undefined>();
     const [folderNameInput, setFolderNameInput] = useState("");
-    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const renameInputRef = useRef<HTMLInputElement>(null);
@@ -125,6 +128,59 @@ export default function Sidebar() {
             }
         };
     }, [searchQuery, searchFiles, clearSearch]);
+    
+    // Global keyboard listener for sidebar actions
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Only trigger if sidebar is focused or event target is not an input
+            const isInput = (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA";
+            if (isInput) return;
+
+            if (e.key === "Delete" || (e.key === "Backspace" && !isMobile)) {
+                if (selectedFiles.size > 0) {
+                    setShowBulkDeleteConfirm(true);
+                } else if (activeFileId) {
+                    const node = findFileNode(files, activeFileId);
+                    if (node) setShowDeleteConfirm(node);
+                }
+            }
+
+            // F2 to start rename
+            if (e.key === "F2") {
+                const targetId = Array.from(selectedFiles)[0] || activeFileId;
+                if (targetId) {
+                    const node = findFileNode(files, targetId);
+                    if (node) handleRenameStart(node);
+                }
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selectedFiles, activeFileId, files, isMobile, setShowBulkDeleteConfirm, setShowDeleteConfirm]);
+
+    // Additional shortcuts for selection
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const isInput = (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA";
+            if (isInput) return;
+
+            // Ctrl+A to select all visible files
+            if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+                e.preventDefault();
+                const allIds = getAllFileIds(files);
+                setSelectedFiles(new Set(allIds));
+            }
+            
+            // Escape to clear selection
+            if (e.key === "Escape") {
+                clearSelection();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [files, setSelectedFiles, clearSelection]);
 
     const handleCreateFile = async (parentPath?: string) => {
         const date = new Date();
@@ -142,8 +198,15 @@ export default function Sidebar() {
     };
 
     const handleDragStart = (e: React.DragEvent, id: string) => {
-        setDraggedId(id);
-        e.dataTransfer.setData("text/plain", id);
+        // If the dragged item is part of the selection, drag the whole selection
+        if (selectedFiles.has(id)) {
+            const dragData = Array.from(selectedFiles).join("|");
+            e.dataTransfer.setData("text/plain", dragData);
+            e.dataTransfer.setData("jpad/multi-select", "true");
+        } else {
+            setDraggedId(id);
+            e.dataTransfer.setData("text/plain", id);
+        }
     };
 
     const handleDragOver = (e: React.DragEvent, node: FileNode) => {
@@ -158,25 +221,34 @@ export default function Sidebar() {
 
     const handleDrop = async (e: React.DragEvent, targetFolder: FileNode) => {
         e.preventDefault();
-        const sourcePath = e.dataTransfer.getData("text/plain");
+        const rawData = e.dataTransfer.getData("text/plain");
+        const isMulti = e.dataTransfer.getData("jpad/multi-select") === "true";
+        
         setDragOverId(null);
         setDraggedId(null);
 
-        if (!sourcePath || targetFolder.type !== "folder" || sourcePath === targetFolder.id) {
+        if (!rawData || targetFolder.type !== "folder") {
             return;
         }
 
-        const fileName = sourcePath.split("/").pop();
-        const newPath = `${targetFolder.id}/${fileName}`;
+        const sourcePaths = isMulti ? rawData.split("|") : [rawData];
+        
+        for (const sourcePath of sourcePaths) {
+            if (sourcePath === targetFolder.id) continue;
+            
+            const fileName = sourcePath.split("/").pop();
+            const newPath = `${targetFolder.id}/${fileName}`;
 
-        if (sourcePath === newPath) return;
+            if (sourcePath === newPath) continue;
 
-        try {
-            await movePath(sourcePath, newPath);
-            setExpanded(prev => ({ ...prev, [targetFolder.id]: true }));
-        } catch (error) {
-            console.error("Failed to move file:", error);
+            try {
+                await movePath(sourcePath, newPath);
+            } catch (error) {
+                console.error(`Failed to move ${sourcePath}:`, error);
+            }
         }
+        
+        setExpanded(prev => ({ ...prev, [targetFolder.id]: true }));
     };
 
     const handleTouchStart = (e: React.TouchEvent, id: string) => {
@@ -300,9 +372,13 @@ export default function Sidebar() {
         }
     };
 
-    const handleBulkDelete = async () => {
+    const handleBulkDelete = async (viaTerminal = false) => {
         try {
-            await deletePaths(Array.from(selectedFiles));
+            if (viaTerminal) {
+                await invoke("delete_with_terminal", { paths: Array.from(selectedFiles) });
+            } else {
+                await deletePaths(Array.from(selectedFiles));
+            }
             setSelectedFiles(new Set());
             setShowBulkDeleteConfirm(false);
         } catch (error) {
@@ -323,6 +399,13 @@ export default function Sidebar() {
     const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // If node is not in current selection, select it (unless Ctrl/Cmd is held)
+        if (!selectedFiles.has(node.id)) {
+            setSelectedFiles(new Set([node.id]));
+            setLastSelectedId(node.id);
+        }
+        
         setContextMenu({
             x: e.clientX,
             y: e.clientY,
@@ -519,6 +602,8 @@ export default function Sidebar() {
         }
         return searchResults.map((result) => {
             const isActive = activeFileId === result.path;
+            const node: FileNode = { id: result.path, name: result.name, type: "file" };
+            
             return (
                 <div
                     key={result.path}
@@ -534,15 +619,43 @@ export default function Sidebar() {
                         clearSearch();
                         if (isMobile) toggleSidebar();
                     }}
+                    onContextMenu={(e) => handleContextMenu(e, node)}
                 >
                     <div className="flex items-center gap-2">
                         {getFileIcon(result.name)}
-                        <span className={cn(
-                            isMobile ? "text-[16px]" : "text-[13px] truncate flex-1",
-                            isActive ? "font-semibold" : "font-normal"
-                        )}>
-                            {result.name}
-                        </span>
+                        {renamingId === result.path ? (
+                            <input
+                                ref={renameInputRef}
+                                type="text"
+                                value={renamingName}
+                                onChange={(e) => setRenamingName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleRenameSubmit();
+                                    if (e.key === "Escape") setRenamingId(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onBlur={handleRenameSubmit}
+                                className="bg-surface border border-primary/40 rounded px-1 py-0.5 text-[13px] w-full focus:outline-none focus:ring-1 focus:ring-primary/40"
+                            />
+                        ) : (
+                            <span className={cn(
+                                isMobile ? "text-[16px]" : "text-[13px] truncate flex-1",
+                                isActive ? "font-semibold" : "font-normal"
+                            )}>
+                                {result.name}
+                            </span>
+                        )}
+                        {!isMobile && !renamingId && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setContextMenu({ x: e.clientX, y: e.clientY, node });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-hover rounded-md transition-all text-text-muted hover:text-primary z-10"
+                            >
+                                <MoreVertical size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
             );
@@ -621,7 +734,15 @@ export default function Sidebar() {
             </div>
 
             {/* File Tree */}
-            <div className="flex-1 overflow-y-auto py-2">
+            <div 
+                className="flex-1 overflow-y-auto py-2"
+                onClick={(e) => {
+                    // Clear selection if clicking on the background of the file tree
+                    if (e.target === e.currentTarget) {
+                        clearSelection();
+                    }
+                }}
+            >
                 {searchQuery ? (
                     <div className="animate-in fade-in duration-200">
                         {renderSearchResults()}
@@ -774,6 +895,22 @@ export default function Sidebar() {
                             >
                                 Delete
                             </button>
+                            {!isMobile && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await invoke("delete_with_terminal", { paths: [showDeleteConfirm.id] });
+                                            setShowDeleteConfirm(null);
+                                        } catch (e) {
+                                            console.error(e);
+                                        }
+                                    }}
+                                    className="px-4 py-3 rounded-xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20"
+                                    title="Delete using terminal (rm -rf)"
+                                >
+                                    RM
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -801,11 +938,20 @@ export default function Sidebar() {
                                 Cancel
                             </button>
                             <button
-                                onClick={handleBulkDelete}
+                                onClick={() => handleBulkDelete(false)}
                                 className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
                             >
                                 Delete All
                             </button>
+                            {!isMobile && (
+                                <button
+                                    onClick={() => handleBulkDelete(true)}
+                                    className="px-4 py-3 rounded-xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20"
+                                    title="Delete using terminal (rm -rf)"
+                                >
+                                    Terminal RM
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -252,10 +252,81 @@ fn delete_with_terminal(paths: Vec<String>) -> Result<(), String> {
         Ok(())
     }
     
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
     {
-        let _ = paths;
-        Err("This command is only available on macOS".to_string())
+        use std::process::Command;
+        
+        let escaped_paths: Vec<String> = paths.iter()
+            .map(|p| format!("'{}'", p.replace("'", "'\\''")))
+            .collect();
+        
+        let rm_command = format!("rm -rf {}", escaped_paths.join(" "));
+        
+        // Try common terminal emulators
+        let terminals = ["kitty", "alacritty", "foot", "gnome-terminal", "konsole", "xterm"];
+        let mut spawned = false;
+        
+        for term in terminals {
+            let result = match term {
+                "gnome-terminal" => Command::new(term)
+                    .arg("--")
+                    .arg("sh")
+                    .arg("-c")
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
+                    .spawn(),
+                "konsole" => Command::new(term)
+                    .arg("-e")
+                    .arg("sh")
+                    .arg("-c")
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
+                    .spawn(),
+                _ => Command::new(term)
+                    .arg("-e")
+                    .arg("sh")
+                    .arg("-c")
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
+                    .spawn(),
+            };
+            
+            if result.is_ok() {
+                spawned = true;
+                break;
+            }
+        }
+        
+        if spawned {
+            Ok(())
+        } else {
+            Err("Failed to find a supported terminal emulator (kitty, alacritty, foot, gnome-terminal, konsole, xterm)".to_string())
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        
+        let paths_list = paths.join("\n");
+        let del_command = paths.iter()
+            .map(|p| {
+                let p_win = p.replace('/', "\\");
+                if Path::new(p).is_dir() {
+                    format!("rd /s /q \"{}\"", p_win)
+                } else {
+                    format!("del /f /q \"{}\"", p_win)
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(" & ");
+
+        Command::new("cmd")
+            .arg("/c")
+            .arg("start")
+            .arg("cmd")
+            .arg("/k")
+            .arg(format!("echo Deleting files: & echo {} & echo. & echo Executing deletions... & timeout /t 2 & {} & echo. & echo Done. & pause & exit", paths_list, del_command))
+            .spawn()
+            .map_err(|e| format!("Failed to open CMD: {}", e))?;
+        Ok(())
     }
 }
 
