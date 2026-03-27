@@ -825,7 +825,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
-                    v1.6.0
+                    v1.7.0
                 </div>
             </div>
 
