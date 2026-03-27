@@ -220,6 +220,32 @@
   height: auto;
   display: block;
   object-fit: contain;
+  transition: all 0.2s ease;
+}
+
+/* Image Size Presets */
+.jpad-editor img.image-small {
+  width: 80px !important;
+  max-width: 80px !important;
+  min-width: unset !important;
+}
+
+.jpad-editor img.image-medium {
+  width: 320px !important;
+  max-width: 320px !important;
+  min-width: unset !important;
+}
+
+.jpad-editor img.image-large {
+  width: 800px !important;
+  max-width: none !important;
+  min-width: min(800px, 100%) !important;
+}
+
+.jpad-editor img.image-original {
+  width: auto !important;
+  max-width: none !important;
+  min-width: unset !important;
 }
 
 /* Tiptap image node wrapper — prevent white background frame */

@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
@@ -34,6 +35,10 @@ import {
     Palette,
     Highlighter,
     ChevronDown,
+    Monitor,
+    Tablet,
+    Smartphone,
+    Maximize,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -181,6 +186,25 @@ function readFileAsDataURL(file: File): Promise<string> {
     });
 }
 
+/** Custom Image extension with size support */
+const CustomImage = Image.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            size: {
+                default: "medium",
+                parseHTML: (element) => element.getAttribute("data-size") || "medium",
+                renderHTML: (attributes) => {
+                    return {
+                        "data-size": attributes.size,
+                        class: `jpad-image image-${attributes.size}`,
+                    };
+                },
+            },
+        };
+    },
+});
+
 export default function Editor() {
     const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setEditorContent, setSelectedContent } = useStore();
     const { vimModeEnabled } = useSettingsStore();
@@ -208,13 +232,9 @@ export default function Editor() {
                 Highlight.configure({
                     multicolor: true,
                 }),
-                Image.configure({
+                CustomImage.configure({
                     inline: false,
                     allowBase64: true,
-                    HTMLAttributes: {
-                        class: "jpad-image",
-                        style: "max-width: 100%; min-width: min(300px, 100%); height: auto;",
-                    },
                 }),
                 Youtube.configure({
                     HTMLAttributes: {
@@ -846,8 +866,59 @@ export default function Editor() {
                 className="hidden"
             />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-16 lg:px-32 pb-20 min-h-0">
-                <EditorContent editor={editor} />
+            <div className="flex-1 overflow-y-auto relative min-h-0">
+                {editor && (
+                    <BubbleMenu
+                        editor={editor}
+                        shouldShow={({ editor }: any) => editor.isActive("image")}
+                        updateDelay={100}
+                        options={{
+                            offset: 10,
+                        }}
+                    >
+                        <div className="flex items-center gap-1 p-1 bg-surface border-2 border-border rounded-lg shadow-xl shadow-black/80 animate-in">
+                            <button
+                                onClick={() => editor.chain().focus().updateAttributes("image", { size: "small" }).run()}
+                                className={cn(
+                                    "px-2 py-1 text-[11px] font-semibold rounded hover:bg-surface-hover transition-all flex items-center gap-1.5",
+                                    editor.getAttributes("image").size === "small" ? "text-primary bg-surface-hover ring-1 ring-primary/20" : "text-text-muted"
+                                )}
+                            >
+                                <Smartphone size={12} /> Small
+                            </button>
+                            <button
+                                onClick={() => editor.chain().focus().updateAttributes("image", { size: "medium" }).run()}
+                                className={cn(
+                                    "px-2 py-1 text-[11px] font-semibold rounded hover:bg-surface-hover transition-all flex items-center gap-1.5",
+                                    (editor.getAttributes("image").size === "medium" || !editor.getAttributes("image").size) ? "text-primary bg-surface-hover ring-1 ring-primary/20" : "text-text-muted"
+                                )}
+                            >
+                                <Tablet size={12} /> Medium
+                            </button>
+                            <button
+                                onClick={() => editor.chain().focus().updateAttributes("image", { size: "large" }).run()}
+                                className={cn(
+                                    "px-2 py-1 text-[11px] font-semibold rounded hover:bg-surface-hover transition-all flex items-center gap-1.5",
+                                    editor.getAttributes("image").size === "large" ? "text-primary bg-surface-hover ring-1 ring-primary/20" : "text-text-muted"
+                                )}
+                            >
+                                <Monitor size={12} /> Large
+                            </button>
+                            <button
+                                onClick={() => editor.chain().focus().updateAttributes("image", { size: "original" }).run()}
+                                className={cn(
+                                    "px-2 py-1 text-[11px] font-semibold rounded hover:bg-surface-hover transition-all flex items-center gap-1.5",
+                                    editor.getAttributes("image").size === "original" ? "text-primary bg-surface-hover ring-1 ring-primary/20" : "text-text-muted"
+                                )}
+                            >
+                                <Maximize size={12} /> Original
+                            </button>
+                        </div>
+                    </BubbleMenu>
+                )}
+                <div className="px-6 md:px-16 lg:px-32 pb-20">
+                    <EditorContent editor={editor} />
+                </div>
             </div>
         </div>
     );

@@ -21,6 +21,7 @@
     "@tauri-apps/plugin-http": "^2.5.7",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-os": "^2.3.2",
+    "@tiptap/extension-bubble-menu": "^3.21.0",
     "@tiptap/extension-color": "^3.20.1",
     "@tiptap/extension-highlight": "^3.20.1",
     "@tiptap/extension-image": "^3.20.1",
