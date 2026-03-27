@@ -134,8 +134,11 @@ export default function Sidebar() {
     // Global keyboard listener for sidebar actions
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Only trigger if sidebar is focused or event target is not an input
-            const isInput = (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA";
+            // Only trigger if sidebar is focused or event target is not an input/editor
+            const target = e.target as HTMLElement;
+            const isInput = target.closest(".jpad-editor") || 
+                           target.isContentEditable ||
+                           ["INPUT", "TEXTAREA"].includes(target.tagName);
             if (isInput) return;
 
             if (e.key === "Delete" || (e.key === "Backspace" && !isMobile)) {
@@ -164,7 +167,10 @@ export default function Sidebar() {
     // Additional shortcuts for selection
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            const isInput = (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA";
+            const target = e.target as HTMLElement;
+            const isInput = target.closest(".jpad-editor") || 
+                           target.isContentEditable ||
+                           ["INPUT", "TEXTAREA"].includes(target.tagName);
             if (isInput) return;
 
             // Ctrl+A to select all visible files

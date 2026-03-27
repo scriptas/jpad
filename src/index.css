@@ -216,11 +216,12 @@
 .jpad-editor img {
   border-radius: 8px;
   max-width: 100%;
-  min-width: min(300px, 100%);
   height: auto;
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
   object-fit: contain;
   transition: all 0.2s ease;
+  margin: 0.5rem;
 }
 
 /* Image Size Presets */
@@ -248,21 +249,18 @@
   min-width: unset !important;
 }
 
-/* Tiptap image node wrapper — prevent white background frame */
+/* Tiptap image node wrapper — removed forced centering to allow inline images */
 .jpad-editor [data-type="image"],
 .jpad-editor .node-image,
-.jpad-editor .image-node-wrapper,
-.jpad-editor div:has(> img) {
+.jpad-editor .image-node-wrapper {
   background: transparent !important;
   background-color: transparent !important;
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
-  margin: 1.5em 0 !important;
-  line-height: 0;
-  display: flex !important;
-  justify-content: center !important;
-  width: 100% !important;
+  display: inline-block !important;
+  vertical-align: middle;
+  width: auto !important;
 }
 
 /* Selected image outline */

@@ -233,7 +233,7 @@ export default function Editor() {
                     multicolor: true,
                 }),
                 CustomImage.configure({
-                    inline: false,
+                    inline: true,
                     allowBase64: true,
                 }),
                 Youtube.configure({
