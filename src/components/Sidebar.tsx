@@ -64,6 +64,7 @@ export default function Sidebar() {
     const folderInputRef = useRef<HTMLInputElement>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const renameInputRef = useRef<HTMLInputElement>(null);
+    const internalDropHandledRef = useRef(false);
 
     const [contextMenu, setContextMenu] = useState<{
         x: number;
@@ -208,19 +209,29 @@ export default function Sidebar() {
             setDraggedId(id);
             e.dataTransfer.setData("text/plain", id);
         }
+        internalDropHandledRef.current = false;
     };
 
     const handleDragEnd = async (e: React.DragEvent, id: string) => {
         setDraggedId(null);
         
-        // Check if the drop happened outside the window
-        const isOutside = 
-            e.clientX <= 0 || 
-            e.clientY <= 0 || 
-            e.clientX >= window.innerWidth || 
-            e.clientY >= window.innerHeight;
+        // If we handled the drop internally within the app (on a folder), 
+        // don't try to open in a new window.
+        if (internalDropHandledRef.current) {
+            return;
+        }
 
-        // If dropEffect is 'none' and it's outside the window, it was dropped outside
+        // Wayland/Linux boundary checks: 
+        // When dragging outside, clientX/Y might be 0, or stick exactly to the edges.
+        const buffer = 5;
+        const isOutside = 
+            e.clientX <= buffer || 
+            e.clientY <= buffer || 
+            e.clientX >= window.innerWidth - buffer || 
+            e.clientY >= window.innerHeight - buffer;
+
+        // On Linux/Wayland, dropEffect can be unreliable. 
+        // We rely on our internal drop tracking and boundary checks.
         if (e.dataTransfer.dropEffect === "none" || isOutside) {
             const pathsToOpen = selectedFiles.has(id) 
                 ? Array.from(selectedFiles) 
@@ -252,6 +263,7 @@ export default function Sidebar() {
 
     const handleDrop = async (e: React.DragEvent, targetFolder: FileNode) => {
         e.preventDefault();
+        internalDropHandledRef.current = true;
         const rawData = e.dataTransfer.getData("text/plain");
         const isMulti = e.dataTransfer.getData("jpad/multi-select") === "true";
         
