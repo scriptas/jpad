@@ -15,7 +15,16 @@ export interface SyncStatus {
   error: string | null;
   filesUploaded: number;
   filesDownloaded: number;
+  filesDeletedLocal: number;
+  filesDeletedRemote: number;
 }
+
+interface SyncManifestEntry {
+  localMtime: number;
+  remoteMtime: number;
+}
+
+type SyncManifest = Record<string, SyncManifestEntry>;
 
 /**
  * Get the OS-native path separator.
@@ -53,6 +62,8 @@ class SupabaseSyncService {
     error: null,
     filesUploaded: 0,
     filesDownloaded: 0,
+    filesDeletedLocal: 0,
+    filesDeletedRemote: 0,
   };
 
   async initialize(config: SupabaseConfig): Promise<void> {
@@ -93,53 +104,170 @@ class SupabaseSyncService {
     this.status.error = null;
     this.status.filesUploaded = 0;
     this.status.filesDownloaded = 0;
+    this.status.filesDeletedLocal = 0;
+    this.status.filesDeletedRemote = 0;
+
+    const manifestPath = joinPath(notesRoot, '.jpad-sync-manifest.json');
 
     try {
-      // Get local files
+      // 1. Load manifest
+      let manifest: SyncManifest = {};
+      try {
+        const manifestStr = await invoke<string>('read_file', { path: manifestPath });
+        manifest = JSON.parse(manifestStr);
+      } catch (e) {
+        console.log('No manifest found or failed to read, starting fresh sync');
+      }
+
+      // 2. Get local files
       const localFiles = await invoke<string[]>('list_all_files', { path: notesRoot });
-
-      // Get remote files recursively
-      const remoteFiles = await this.listRemoteFilesRecursive('');
-
-      // Build file maps with timestamps
       const localMap = new Map<string, number>();
       for (const file of localFiles) {
         const mtime = await invoke<number>('get_file_mtime', { path: file });
-        // Normalize path: make it relative to notesRoot using forward slashes
         let relativePath = file.replace(notesRoot, '');
-        relativePath = relativePath.replace(/\\/g, '/'); // normalize to forward slashes
-        // Ensure no leading slash
+        relativePath = relativePath.replace(/\\/g, '/');
         const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
-        if (cleanPath) {
+        if (cleanPath && !cleanPath.startsWith('.')) { // Skip hidden files like manifest itself
           localMap.set(cleanPath, mtime);
         }
       }
 
+      // 3. Get remote files recursively
+      const remoteFiles = await this.listRemoteFilesRecursive('');
       const remoteMap = new Map<string, number>();
       for (const file of remoteFiles) {
         remoteMap.set(file.name, new Date(file.updated_at).getTime());
       }
 
-      // Sync logic: newer file wins
-      for (const [relativePath, localMtime] of localMap) {
-        const remoteMtime = remoteMap.get(relativePath);
+      // 4. Combine all paths
+      const allPaths = new Set([
+        ...localMap.keys(),
+        ...remoteMap.keys(),
+        ...Object.keys(manifest)
+      ]);
 
-        if (!remoteMtime || localMtime > remoteMtime + 1000) { // 1s buffer
-          await this.uploadFile(notesRoot, relativePath);
-          this.status.filesUploaded++;
-        } else if (remoteMtime > localMtime + 1000) {
-          await this.downloadFile(notesRoot, relativePath);
-          this.status.filesDownloaded++;
+      const newManifest: SyncManifest = {};
+
+      // 5. Sync logic
+      for (const path of allPaths) {
+        const L = localMap.get(path);
+        const R = remoteMap.get(path);
+        const M = manifest[path];
+
+        if (M) {
+          // File was known in last sync
+          if (L !== undefined && R !== undefined) {
+            // Both exist: check for changes
+            const localChanged = Math.abs(L - M.localMtime) > 1000;
+            const remoteChanged = Math.abs(R - M.remoteMtime) > 1000;
+
+            if (localChanged && !remoteChanged) {
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else if (!localChanged && remoteChanged) {
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            } else if (localChanged && remoteChanged) {
+              // Conflict: newer wins
+              if (L > R) {
+                await this.uploadFile(notesRoot, path);
+                this.status.filesUploaded++;
+              } else {
+                await this.downloadFile(notesRoot, path);
+                this.status.filesDownloaded++;
+              }
+            }
+          } else if (L !== undefined && R === undefined) {
+            // Local exists, Remote gone
+            const localChanged = Math.abs(L - M.localMtime) > 1000;
+            if (localChanged) {
+              // Local was updated after last sync, but remote is gone.
+              // Re-upload (Update wins)
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else {
+              // Local unchanged, remote was deleted.
+              // Delete local
+              await invoke('delete_path', { path: joinPath(notesRoot, path) });
+              this.status.filesDeletedLocal++;
+              continue; // Don't add to new manifest
+            }
+          } else if (L === undefined && R !== undefined) {
+            // Local gone, Remote exists
+            const remoteChanged = Math.abs(R - M.remoteMtime) > 1000;
+            if (remoteChanged) {
+              // Remote was updated after last sync, but local is gone.
+              // Re-download (Update wins)
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            } else {
+              // Remote unchanged, local was deleted.
+              // Delete remote
+              await this.deleteRemoteFile(path);
+              this.status.filesDeletedRemote++;
+              continue; // Don't add to new manifest
+            }
+          } else {
+            // Both gone
+            continue;
+          }
+        } else {
+          // Not in manifest - new on one or both sides
+          if (L !== undefined && R !== undefined) {
+            // New on both! Newer wins.
+            if (L > R) {
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else {
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            }
+          } else if (L !== undefined) {
+            // New local
+            await this.uploadFile(notesRoot, path);
+            this.status.filesUploaded++;
+          } else if (R !== undefined) {
+            // New remote
+            await this.downloadFile(notesRoot, path);
+            this.status.filesDownloaded++;
+          }
+        }
+
+        // Add/Update manifest entry
+        // Get fresh mtimes after operations
+        const finalL = await invoke<number>('get_file_mtime', { path: joinPath(notesRoot, path) }).catch(() => 0);
+        // For remote, we'd need to re-fetch or assume our upload/download set it.
+        // To be safe, we can list again or just use what we have if we just downloaded it.
+        // Actually, for remote, we should probably use the updated_at from Supabase after upload.
+        // For now, let's just use R if it was newer, or a fresh timestamp if we uploaded.
+        // But wait, Supabase updated_at is only available after a list.
+        // Let's just store the current time as a proxy, or use the local mtime as a reference if synced.
+        
+        // Simpler: use the current local mtime as manifest.localMtime, 
+        // and for remoteMtime we can just store the one we saw or L if we uploaded.
+        // Wait, Supabase updated_at is the source of truth for R.
+        // If we uploaded, we don't have the new updated_at without a list.
+        // This is a common problem with stateless sync.
+        // Let's just perform a re-list at the end to get accurate remote timestamps.
+        newManifest[path] = {
+          localMtime: finalL,
+          remoteMtime: 0 // Will fill after re-listing
+        };
+      }
+
+      // 6. Refresh remote map to get accurate timestamps for manifest
+      const finalRemoteFiles = await this.listRemoteFilesRecursive('');
+      for (const file of finalRemoteFiles) {
+        if (newManifest[file.name]) {
+          newManifest[file.name].remoteMtime = new Date(file.updated_at).getTime();
         }
       }
 
-      // Download files that only exist remotely
-      for (const [remotePath] of remoteMap) {
-        if (!localMap.has(remotePath)) {
-          await this.downloadFile(notesRoot, remotePath);
-          this.status.filesDownloaded++;
-        }
-      }
+      // 7. Save manifest
+      await invoke('write_file', {
+        path: manifestPath,
+        content: JSON.stringify(newManifest, null, 2)
+      });
 
       this.status.lastSync = new Date();
       this.status.error = null;
@@ -207,6 +335,17 @@ class SupabaseSyncService {
 
     const content = await data.text();
     await invoke('write_file', { path: localPath, content });
+  }
+
+  public async deleteRemoteFile(relativePath: string): Promise<void> {
+    if (!this.client || !this.config) throw new Error('Not initialized');
+
+    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    const { error } = await this.client.storage
+      .from(this.config.bucket)
+      .remove([cleanPath]);
+
+    if (error) throw error;
   }
 
   async pushFile(notesRoot: string, filePath: string): Promise<void> {

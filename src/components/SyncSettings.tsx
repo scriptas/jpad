@@ -194,7 +194,12 @@ export default function SyncSettings() {
             <div className="flex items-center justify-between text-xs">
               <span className="text-text/50">Last Transfer</span>
               <span className="text-text/80">
-                ↑{status.filesUploaded} ↓{status.filesDownloaded} files
+                ↑{status.filesUploaded} ↓{status.filesDownloaded} 
+                {(status.filesDeletedLocal > 0 || status.filesDeletedRemote > 0) && (
+                  <span className="ml-1 text-red-400">
+                    🗑️{status.filesDeletedLocal + status.filesDeletedRemote}
+                  </span>
+                )} files
               </span>
             </div>
           )}

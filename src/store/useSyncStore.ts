@@ -38,6 +38,8 @@ const DEFAULT_STATUS: SyncStatus = {
   error: null,
   filesUploaded: 0,
   filesDownloaded: 0,
+  filesDeletedLocal: 0,
+  filesDeletedRemote: 0,
 };
 
 export const useSyncStore = create<SyncStore>()(

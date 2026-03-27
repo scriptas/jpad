@@ -355,6 +355,36 @@ function VimModeSetting() {
     );
 }
 
+/** Neon border toggle setting component */
+function NeonBorderSetting() {
+    const { showNeonBorder, setShowNeonBorder } = useThemeStore();
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex-1">
+                <div className="text-xs font-medium text-text mb-1">Neon App Border</div>
+                <div className="text-[10px] text-text-muted/60 leading-tight">
+                    Add a glowing theme-colored border around the application
+                </div>
+            </div>
+            <button
+                onClick={() => setShowNeonBorder(!showNeonBorder)}
+                className={cn(
+                    "relative w-11 h-6 rounded-full transition-colors",
+                    showNeonBorder ? "bg-primary" : "bg-surface border border-border"
+                )}
+            >
+                <div
+                    className={cn(
+                        "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
+                        showNeonBorder ? "right-0.5" : "left-0.5"
+                    )}
+                />
+            </button>
+        </div>
+    );
+}
+
 type SettingsSection = "appearance" | "filename" | "vim" | "cloud";
 
 export default function Settings() {
@@ -893,6 +923,19 @@ export default function Settings() {
                                                     </p>
                                                 </div>
                                             )}
+                                         </div>
+
+                                        {/* Section: General Aesthetics */}
+                                        <div className="mt-8 mb-4">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Sparkles size={14} className="text-primary" />
+                                                <h3 className="text-[11px] font-bold tracking-wider text-text-muted/50 uppercase">
+                                                    General Aesthetics
+                                                </h3>
+                                            </div>
+                                            <div className="rounded-xl bg-surface/30 border border-border/30 p-4">
+                                                <NeonBorderSetting />
+                                            </div>
                                         </div>
 
                                         {/* Tip about editing presets */}

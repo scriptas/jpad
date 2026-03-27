@@ -17,7 +17,16 @@ export interface SyncStatus {
   error: string | null;
   filesUploaded: number;
   filesDownloaded: number;
+  filesDeletedLocal: number;
+  filesDeletedRemote: number;
 }
+
+interface SyncManifestEntry {
+  localMtime: number;
+  remoteMtime: number;
+}
+
+type SyncManifest = Record<string, SyncManifestEntry>;
 
 class SyncService {
   private client: WebDAVClient | null = null;
@@ -28,6 +37,8 @@ class SyncService {
     error: null,
     filesUploaded: 0,
     filesDownloaded: 0,
+    filesDeletedLocal: 0,
+    filesDeletedRemote: 0,
   };
 
   async initialize(config: SyncConfig): Promise<void> {
@@ -77,53 +88,144 @@ class SyncService {
     this.status.error = null;
     this.status.filesUploaded = 0;
     this.status.filesDownloaded = 0;
+    this.status.filesDeletedLocal = 0;
+    this.status.filesDeletedRemote = 0;
+
+    const sep = platform() === 'windows' ? '\\' : '/';
+    const manifestPath = notesRoot.endsWith(sep) ? `${notesRoot}.jpad-sync-manifest.json` : `${notesRoot}${sep}.jpad-sync-manifest.json`;
 
     try {
-      // Get local files
+      // 1. Load manifest
+      let manifest: SyncManifest = {};
+      try {
+        const manifestStr = await invoke<string>('read_file', { path: manifestPath });
+        manifest = JSON.parse(manifestStr);
+      } catch (e) {
+        console.log('No manifest found or failed to read, starting fresh sync');
+      }
+
+      // 2. Get local files
       const localFiles = await invoke<string[]>('list_all_files', { path: notesRoot });
-      
-      // Get remote files
-      const remoteFiles = await this.getRemoteFiles(this.config.remotePath);
-      
-      // Build file maps with timestamps
       const localMap = new Map<string, number>();
       for (const file of localFiles) {
         const mtime = await invoke<number>('get_file_mtime', { path: file });
         const relativePath = file.replace(notesRoot, '').replace(/\\/g, '/');
-        localMap.set(relativePath, mtime);
+        const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+        if (cleanPath && !cleanPath.startsWith('.')) {
+          localMap.set(cleanPath, mtime);
+        }
       }
 
+      // 3. Get remote files recursively
+      const remoteFiles = await this.getRemoteFilesRecursive(this.config.remotePath);
       const remoteMap = new Map<string, number>();
       for (const file of remoteFiles) {
-        remoteMap.set(file.filename, new Date(file.lastmod).getTime());
+        const relPath: string = file.filename.replace(this.config.remotePath, '');
+        const cleanRelPath = relPath.startsWith('/') ? relPath.slice(1) : relPath;
+        remoteMap.set(cleanRelPath, new Date(file.lastmod).getTime());
       }
 
-      // Sync logic: newer file wins
-      for (const [relativePath, localMtime] of localMap) {
-        const remoteMtime = remoteMap.get(relativePath);
-        
-        if (!remoteMtime) {
-          // File only exists locally - upload
-          await this.uploadFile(notesRoot, relativePath);
-          this.status.filesUploaded++;
-        } else if (localMtime > remoteMtime) {
-          // Local is newer - upload
-          await this.uploadFile(notesRoot, relativePath);
-          this.status.filesUploaded++;
-        } else if (remoteMtime > localMtime) {
-          // Remote is newer - download
-          await this.downloadFile(notesRoot, relativePath);
-          this.status.filesDownloaded++;
+      // 4. Combine all paths
+      const allPaths = new Set([
+        ...localMap.keys(),
+        ...remoteMap.keys(),
+        ...Object.keys(manifest)
+      ]);
+
+      const newManifest: SyncManifest = {};
+
+      // 5. Sync logic
+      for (const path of allPaths) {
+        const L = localMap.get(path);
+        const R = remoteMap.get(path);
+        const M = manifest[path];
+
+        const localFilePath = notesRoot.endsWith(sep) ? `${notesRoot}${path.replace(/\//g, sep)}` : `${notesRoot}${sep}${path.replace(/\//g, sep)}`;
+
+        if (M) {
+          if (L !== undefined && R !== undefined) {
+            const localChanged = Math.abs(L - M.localMtime) > 1000;
+            const remoteChanged = Math.abs(R - M.remoteMtime) > 1000;
+
+            if (localChanged && !remoteChanged) {
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else if (!localChanged && remoteChanged) {
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            } else if (localChanged && remoteChanged) {
+              if (L > R) {
+                await this.uploadFile(notesRoot, path);
+                this.status.filesUploaded++;
+              } else {
+                await this.downloadFile(notesRoot, path);
+                this.status.filesDownloaded++;
+              }
+            }
+          } else if (L !== undefined && R === undefined) {
+            const localChanged = Math.abs(L - M.localMtime) > 1000;
+            if (localChanged) {
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else {
+              await invoke('delete_path', { path: localFilePath });
+              this.status.filesDeletedLocal++;
+              continue;
+            }
+          } else if (L === undefined && R !== undefined) {
+            const remoteChanged = Math.abs(R - M.remoteMtime) > 1000;
+            if (remoteChanged) {
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            } else {
+              await this.deleteRemoteFile(path);
+              this.status.filesDeletedRemote++;
+              continue;
+            }
+          } else {
+            continue;
+          }
+        } else {
+          if (L !== undefined && R !== undefined) {
+            if (L > R) {
+              await this.uploadFile(notesRoot, path);
+              this.status.filesUploaded++;
+            } else {
+              await this.downloadFile(notesRoot, path);
+              this.status.filesDownloaded++;
+            }
+          } else if (L !== undefined) {
+            await this.uploadFile(notesRoot, path);
+            this.status.filesUploaded++;
+          } else if (R !== undefined) {
+            await this.downloadFile(notesRoot, path);
+            this.status.filesDownloaded++;
+          }
+        }
+
+        // Fresh mtimes for manifest
+        const finalL = await invoke<number>('get_file_mtime', { path: localFilePath }).catch(() => 0);
+        newManifest[path] = {
+          localMtime: finalL,
+          remoteMtime: 0 // Will fill after re-listing
+        };
+      }
+
+      // 6. Refresh remote map for accurate manifest
+      const finalRemoteFiles = await this.getRemoteFilesRecursive(this.config.remotePath);
+      for (const file of finalRemoteFiles) {
+        const relPath: string = file.filename.replace(this.config.remotePath, '');
+        const cleanRelPath = relPath.startsWith('/') ? relPath.slice(1) : relPath;
+        if (newManifest[cleanRelPath]) {
+          newManifest[cleanRelPath].remoteMtime = new Date(file.lastmod).getTime();
         }
       }
 
-      // Download files that only exist remotely
-      for (const [remotePath, _] of remoteMap) {
-        if (!localMap.has(remotePath)) {
-          await this.downloadFile(notesRoot, remotePath);
-          this.status.filesDownloaded++;
-        }
-      }
+      // 7. Save manifest
+      await invoke('write_file', {
+        path: manifestPath,
+        content: JSON.stringify(newManifest, null, 2)
+      });
 
       this.status.lastSync = new Date();
       this.status.error = null;
@@ -135,11 +237,28 @@ class SyncService {
     }
   }
 
-  private async getRemoteFiles(remotePath: string): Promise<FileStat[]> {
+  private async getRemoteFilesRecursive(remotePath: string): Promise<FileStat[]> {
     if (!this.client) throw new Error('Client not initialized');
     
+    let allFiles: FileStat[] = [];
     const contents = await this.client.getDirectoryContents(remotePath) as FileStat[];
-    return contents.filter(item => item.type === 'file');
+    
+    for (const item of contents) {
+      if (item.type === 'file') {
+        allFiles.push(item);
+      } else if (item.type === 'directory') {
+        const subFiles = await this.getRemoteFilesRecursive(item.filename);
+        allFiles = allFiles.concat(subFiles);
+      }
+    }
+    
+    return allFiles;
+  }
+
+  public async deleteRemoteFile(relativePath: string): Promise<void> {
+    if (!this.client || !this.config) throw new Error('Not initialized');
+    const remotePath = `${this.config.remotePath}${relativePath.startsWith('/') ? relativePath : '/' + relativePath}`;
+    await this.client.deleteFile(remotePath);
   }
 
   private async uploadFile(notesRoot: string, relativePath: string): Promise<void> {

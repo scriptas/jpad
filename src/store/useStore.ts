@@ -192,8 +192,31 @@ export const useStore = create<AppState>((set, get) => ({
 
     deletePath: async (path: string) => {
         try {
+            const { activeFileId, setActiveFileId, refreshFiles, notesRoot } = get();
+
+            // Notify cloud sync if enabled
+            const { useSyncStore } = await import("./useSyncStore");
+            const { config } = useSyncStore.getState();
+            if (config.enabled) {
+                const { syncService } = await import("../services/syncService");
+                const { supabaseSyncService } = await import("../services/supabaseService");
+                
+                let relativePath = path.replace(notesRoot, '');
+                relativePath = relativePath.replace(/\\/g, '/');
+                const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+
+                try {
+                    if (config.mode === "webdav") {
+                        await (syncService as any).deleteRemoteFile(cleanPath);
+                    } else {
+                        await (supabaseSyncService as any).deleteRemoteFile(cleanPath);
+                    }
+                } catch (e) {
+                    console.error('Failed to delete from cloud:', e);
+                }
+            }
+
             await invoke("delete_path", { path });
-            const { activeFileId, setActiveFileId, refreshFiles } = get();
             await refreshFiles();
             if (activeFileId === path) {
                 setActiveFileId(null);
@@ -205,8 +228,33 @@ export const useStore = create<AppState>((set, get) => ({
     },
     deletePaths: async (paths: string[]) => {
         try {
+            const { activeFileId, setActiveFileId, refreshFiles, notesRoot } = get();
+
+            // Notify cloud sync if enabled
+            const { useSyncStore } = await import("./useSyncStore");
+            const { config } = useSyncStore.getState();
+            if (config.enabled) {
+                const { syncService } = await import("../services/syncService");
+                const { supabaseSyncService } = await import("../services/supabaseService");
+                
+                for (const path of paths) {
+                    let relativePath = path.replace(notesRoot, '');
+                    relativePath = relativePath.replace(/\\/g, '/');
+                    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+                    
+                    try {
+                        if (config.mode === "webdav") {
+                            await (syncService as any).deleteRemoteFile(cleanPath);
+                        } else {
+                            await (supabaseSyncService as any).deleteRemoteFile(cleanPath);
+                        }
+                    } catch (e) {
+                        console.error('Failed to delete from cloud:', e);
+                    }
+                }
+            }
+
             await invoke("delete_paths", { paths });
-            const { activeFileId, setActiveFileId, refreshFiles } = get();
             await refreshFiles();
             if (activeFileId && paths.includes(activeFileId)) {
                 setActiveFileId(null);
