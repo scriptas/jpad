@@ -130,15 +130,15 @@ export default function Sidebar() {
             }
         };
     }, [searchQuery, searchFiles, clearSearch]);
-    
+
     // Global keyboard listener for sidebar actions
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Only trigger if sidebar is focused or event target is not an input/editor
             const target = e.target as HTMLElement;
-            const isInput = target.closest(".jpad-editor") || 
-                           target.isContentEditable ||
-                           ["INPUT", "TEXTAREA"].includes(target.tagName);
+            const isInput = target.closest(".jpad-editor") ||
+                target.isContentEditable ||
+                ["INPUT", "TEXTAREA"].includes(target.tagName);
             if (isInput) return;
 
             if (e.key === "Delete" || (e.key === "Backspace" && !isMobile)) {
@@ -168,9 +168,9 @@ export default function Sidebar() {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
-            const isInput = target.closest(".jpad-editor") || 
-                           target.isContentEditable ||
-                           ["INPUT", "TEXTAREA"].includes(target.tagName);
+            const isInput = target.closest(".jpad-editor") ||
+                target.isContentEditable ||
+                ["INPUT", "TEXTAREA"].includes(target.tagName);
             if (isInput) return;
 
             // Ctrl+A to select all visible files
@@ -179,7 +179,7 @@ export default function Sidebar() {
                 const allIds = getAllFileIds(files);
                 setSelectedFiles(new Set(allIds));
             }
-            
+
             // Escape to clear selection
             if (e.key === "Escape") {
                 clearSelection();
@@ -220,7 +220,7 @@ export default function Sidebar() {
 
     const handleDragEnd = async (e: React.DragEvent, id: string) => {
         setDraggedId(null);
-        
+
         // If we handled the drop internally within the app (on a folder), 
         // don't try to open in a new window.
         if (internalDropHandledRef.current) {
@@ -230,17 +230,17 @@ export default function Sidebar() {
         // Wayland/Linux boundary checks: 
         // When dragging outside, clientX/Y might be 0, or stick exactly to the edges.
         const buffer = 5;
-        const isOutside = 
-            e.clientX <= buffer || 
-            e.clientY <= buffer || 
-            e.clientX >= window.innerWidth - buffer || 
+        const isOutside =
+            e.clientX <= buffer ||
+            e.clientY <= buffer ||
+            e.clientX >= window.innerWidth - buffer ||
             e.clientY >= window.innerHeight - buffer;
 
         // On Linux/Wayland, dropEffect can be unreliable. 
         // We rely on our internal drop tracking and boundary checks.
         if (e.dataTransfer.dropEffect === "none" || isOutside) {
-            const pathsToOpen = selectedFiles.has(id) 
-                ? Array.from(selectedFiles) 
+            const pathsToOpen = selectedFiles.has(id)
+                ? Array.from(selectedFiles)
                 : [id];
 
             for (const path of pathsToOpen) {
@@ -272,7 +272,7 @@ export default function Sidebar() {
         internalDropHandledRef.current = true;
         const rawData = e.dataTransfer.getData("text/plain");
         const isMulti = e.dataTransfer.getData("jpad/multi-select") === "true";
-        
+
         setDragOverId(null);
         setDraggedId(null);
 
@@ -281,10 +281,10 @@ export default function Sidebar() {
         }
 
         const sourcePaths = isMulti ? rawData.split("|") : [rawData];
-        
+
         for (const sourcePath of sourcePaths) {
             if (sourcePath === targetFolder.id) continue;
-            
+
             const fileName = sourcePath.split("/").pop();
             const newPath = `${targetFolder.id}/${fileName}`;
 
@@ -296,7 +296,7 @@ export default function Sidebar() {
                 console.error(`Failed to move ${sourcePath}:`, error);
             }
         }
-        
+
         setExpanded(prev => ({ ...prev, [targetFolder.id]: true }));
     };
 
@@ -458,13 +458,13 @@ export default function Sidebar() {
     const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // If node is not in current selection, select it (unless Ctrl/Cmd is held)
         if (!selectedFiles.has(node.id)) {
             setSelectedFiles(new Set([node.id]));
             setLastSelectedId(node.id);
         }
-        
+
         setContextMenu({
             x: e.clientX,
             y: e.clientY,
@@ -663,7 +663,7 @@ export default function Sidebar() {
         return searchResults.map((result) => {
             const isActive = activeFileId === result.path;
             const node: FileNode = { id: result.path, name: result.name, type: "file" };
-            
+
             return (
                 <div
                     key={result.path}
@@ -794,7 +794,7 @@ export default function Sidebar() {
             </div>
 
             {/* File Tree */}
-            <div 
+            <div
                 className="flex-1 overflow-y-auto py-2"
                 onClick={(e) => {
                     // Clear selection if clicking on the background of the file tree
@@ -831,7 +831,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
-                    v1.7.0
+                    v1.8.1
                 </div>
             </div>
 
