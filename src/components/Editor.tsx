@@ -177,7 +177,7 @@ function ColorPicker({
 }
 
 /** Read a File as a base64 data URI */
-function readFileAsDataURL(file: File): Promise<string> {
+function readFileAsDataURL(file: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -186,11 +186,58 @@ function readFileAsDataURL(file: File): Promise<string> {
     });
 }
 
-/** Custom Image extension with size support */
+/** 
+ * Scans HTML for blob: URLs and converts them back to base64.
+ * This is a safety measure because some browser backends (like Webkit on Linux)
+ * can automatically convert large data URLs into temporary blobs in the DOM.
+ */
+async function deblobifyContent(html: string): Promise<string> {
+    if (!html.includes('src="blob:')) return html;
+
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const images = div.querySelectorAll('img[src^="blob:"]');
+    
+    if (images.length === 0) return html;
+
+    for (const imgNode of Array.from(images)) {
+        const img = imgNode as HTMLImageElement;
+        const src = img.getAttribute('src');
+        if (src && src.startsWith('blob:')) {
+            try {
+                const response = await fetch(src);
+                const blob = await response.blob();
+                const base64 = await readFileAsDataURL(blob);
+                img.setAttribute('src', base64);
+            } catch (err) {
+                console.error("Failed to deblobify image:", err);
+            }
+        }
+    }
+
+    return div.innerHTML;
+}
+
+/** Custom Image extension with size and inline support */
 const CustomImage = Image.extend({
+    addOptions() {
+        return {
+            ...(this.parent?.() as any),
+            inline: true,
+            allowBase64: true,
+        };
+    },
+
     addAttributes() {
         return {
             ...this.parent?.(),
+            src: {
+                default: null,
+                parseHTML: element => element.getAttribute('src'),
+                renderHTML: attributes => ({
+                    src: attributes.src,
+                }),
+            },
             size: {
                 default: "medium",
                 parseHTML: (element) => element.getAttribute("data-size") || "medium",
@@ -232,10 +279,7 @@ export default function Editor() {
                 Highlight.configure({
                     multicolor: true,
                 }),
-                CustomImage.configure({
-                    inline: true,
-                    allowBase64: true,
-                }),
+                CustomImage,
                 Youtube.configure({
                     HTMLAttributes: {
                         class: "mx-auto rounded-lg shadow-lg border border-border max-w-full my-4",
@@ -251,7 +295,7 @@ export default function Editor() {
                 attributes: {
                     class: "jpad-editor focus:outline-none min-h-[500px] pt-6",
                 },
-                handleDrop: (view, event, _slice, moved) => {
+                handleDrop: (_view, event, _slice, moved) => {
                     if (moved || !event.dataTransfer?.files?.length) return false;
 
                     const images = Array.from(event.dataTransfer.files).filter((f) =>
@@ -261,21 +305,10 @@ export default function Editor() {
 
                     event.preventDefault();
 
-                    const coordinates = view.posAtCoords({
-                        left: event.clientX,
-                        top: event.clientY,
-                    });
-
                     images.forEach(async (image) => {
                         const dataUrl = await readFileAsDataURL(image);
-                        const node = view.state.schema.nodes.image.create({
-                            src: dataUrl,
-                        });
-                        const tr = view.state.tr.insert(
-                            coordinates?.pos ?? view.state.selection.anchor,
-                            node
-                        );
-                        view.dispatch(tr);
+                        // Use editor commands instead of manual node creation for better state management
+                        (editor as any).chain().focus().setImage({ src: dataUrl }).run();
                     });
 
                     return true;
@@ -293,11 +326,8 @@ export default function Editor() {
                             const file = item.getAsFile();
                             if (!file) return;
                             const dataUrl = await readFileAsDataURL(file);
-                            const node = view.state.schema.nodes.image.create({
-                                src: dataUrl,
-                            });
-                            const tr = view.state.tr.replaceSelectionWith(node);
-                            view.dispatch(tr);
+                            // Use editor commands instead of manual node creation for better state management
+                            (editor as any).chain().focus().setImage({ src: dataUrl }).run();
                         });
                         return true;
                     }
@@ -363,9 +393,12 @@ export default function Editor() {
                 if (isLoadingRef.current) return;
                 const content = editor.getHTML();
                 setEditorContent(content); // Update store immediately for stats
+                
                 if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = setTimeout(() => {
-                    saveRef.current(content);
+                saveTimeoutRef.current = setTimeout(async () => {
+                    // Safety check: ensure no browser blobs leak into the saved file
+                    const safeContent = await deblobifyContent(content);
+                    saveRef.current(safeContent);
                 }, 600);
             },
             onSelectionUpdate: ({ editor }) => {
