@@ -14,6 +14,7 @@ import {
     Maximize2,
     X,
 } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
 import { getFileIconForName } from "./FileIcons";
 import { useStore, FileNode, findFileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
@@ -50,6 +51,12 @@ export default function Sidebar() {
         setLastSelectedId,
         clearSelection,
     } = useStore();
+
+    const [appVersion, setAppVersion] = useState<string>("");
+
+    useEffect(() => {
+        getVersion().then(setAppVersion);
+    }, []);
 
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [searchQuery, setSearchQuery] = useState("");
@@ -831,7 +838,7 @@ export default function Sidebar() {
                     <span>Settings</span>
                 </button>
                 <div className="text-[12px] text-text-muted font-mono opacity-40">
-                    v1.8.1
+                    v{appVersion}
                 </div>
             </div>
 
