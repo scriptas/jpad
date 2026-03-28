@@ -656,12 +656,26 @@ export default function Editor() {
                         Select a thought from the explorer or{" "}
                         <button
                             onClick={() => {
-                                const { notesRoot, createFile } = useStore.getState();
+                                const { notesRoot, createFile, lastSelectedId, activeFileId, files } = useStore.getState();
                                 const { fileNamePrefix } = useSettingsStore.getState();
                                 const date = new Date();
                                 const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
                                 const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
-                                createFile(`${notesRoot}/${defaultName}`);
+
+                                let basePath: string | undefined;
+                                const targetId = lastSelectedId || activeFileId;
+                                if (targetId) {
+                                    const node = findFileNode(files, targetId);
+                                    if (node) {
+                                        if (node.type === "folder") {
+                                            basePath = node.id;
+                                        } else {
+                                            basePath = node.id.substring(0, node.id.lastIndexOf("/"));
+                                        }
+                                    }
+                                }
+
+                                createFile(`${basePath || notesRoot}/${defaultName}`);
                             }}
                             className="text-primary font-medium hover:underline focus:outline-none"
                         >

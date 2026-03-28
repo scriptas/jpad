@@ -203,13 +203,53 @@ export default function Sidebar() {
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
         const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
-        const basePath = parentPath || notesRoot;
+        
+        let basePath = parentPath;
+        if (!basePath) {
+            const targetId = lastSelectedId || activeFileId;
+            if (targetId) {
+                const node = findFileNode(files, targetId);
+                if (node) {
+                    if (node.type === "folder") {
+                        basePath = node.id;
+                    } else {
+                        // It's a file, get parent folder
+                        basePath = node.id.substring(0, node.id.lastIndexOf("/"));
+                    }
+                }
+            }
+        }
+        
+        if (!basePath) {
+            basePath = notesRoot;
+        }
 
         await createFile(`${basePath}/${defaultName}`);
+        
+        // Ensure the folder is expanded so the user sees the new file
+        if (basePath !== notesRoot) {
+            setExpanded(prev => ({ ...prev, [basePath]: true }));
+        }
     };
 
     const handleCreateFolder = async (parentPath?: string) => {
-        setFolderDialogParentPath(parentPath);
+        let basePath = parentPath;
+        if (!basePath) {
+            const targetId = lastSelectedId || activeFileId;
+            if (targetId) {
+                const node = findFileNode(files, targetId);
+                if (node) {
+                    if (node.type === "folder") {
+                        basePath = node.id;
+                    } else {
+                        // It's a file, get parent folder
+                        basePath = node.id.substring(0, node.id.lastIndexOf("/"));
+                    }
+                }
+            }
+        }
+
+        setFolderDialogParentPath(basePath || notesRoot);
         setFolderNameInput("");
         setShowFolderDialog(true);
     };
@@ -902,6 +942,29 @@ export default function Sidebar() {
                     style={{ left: Math.min(contextMenu.x, window.innerWidth - 200), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
                     onClick={(e) => e.stopPropagation()}
                 >
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleCreateFile(contextMenu.node.type === 'folder' ? contextMenu.node.id : undefined);
+                            setContextMenu(null);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                    >
+                        <FilePlus size={14} className="text-primary" />
+                        New File
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleCreateFolder(contextMenu.node.type === 'folder' ? contextMenu.node.id : undefined);
+                            setContextMenu(null);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                    >
+                        <FolderPlus size={14} className="text-primary" />
+                        New Folder
+                    </button>
+                    <div className="h-[1px] bg-border my-1.5 mx-2" />
                     <button
                         onClick={(e) => { e.stopPropagation(); handleRenameStart(contextMenu.node); }}
                         className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
