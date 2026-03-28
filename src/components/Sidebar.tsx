@@ -18,6 +18,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { getFileIconForName } from "./FileIcons";
 import { useStore, FileNode, findFileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -198,9 +199,10 @@ export default function Sidebar() {
     }, [files, setSelectedFiles, clearSelection]);
 
     const handleCreateFile = async (parentPath?: string) => {
+        const { fileNamePrefix } = useSettingsStore.getState();
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const defaultName = `Untitled-${timestamp}.jt`;
+        const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
         const basePath = parentPath || notesRoot;
 
         await createFile(`${basePath}/${defaultName}`);
