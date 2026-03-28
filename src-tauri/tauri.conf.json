@@ -15,7 +15,7 @@
         "title": "JPad",
         "width": 1100,
         "height": 750,
-        "decorations": false,
+        "decorations": true,
         "transparent": true,
         "resizable": true,
         "dragDropEnabled": false,

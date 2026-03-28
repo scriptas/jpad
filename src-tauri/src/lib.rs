@@ -567,26 +567,36 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .setup(|_app| {
-            #[cfg(target_os = "macos")]
-            {
-                use tauri::Manager;
-                if let Some(window) = _app.get_webview_window("main") {
+            use tauri::Manager;
+            if let Some(window) = _app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                {
+                    // Ensure the title is empty so no ghost labels (like "Commit") appear.
+                    let _ = window.set_title("");
+                    
                     let ns_window = window.ns_window().unwrap() as cocoa::base::id;
                     unsafe {
-                        use cocoa::appkit::{NSWindow, NSWindowTitleVisibility, NSWindowStyleMask};
+                        use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSWindowTitleVisibility, NSWindowStyleMask};
                         
-                        // This helps with the maximization issue on some macOS versions
+                        // Set the title bar transparency and visibility
                         ns_window.setTitleVisibility_(NSWindowTitleVisibility::NSWindowTitleHidden);
                         ns_window.setTitlebarAppearsTransparent_(cocoa::base::YES);
-                        
-                        // Set shadow
-                        let _: () = msg_send![ns_window, setHasShadow: cocoa::base::YES];
-                        
-                        // Make the window content fill the whole window including the title bar area
-                        // This often fixes the "stuck off top" issue for frameless windows
-                        let style_mask = ns_window.styleMask();
-                        ns_window.setStyleMask_(style_mask | NSWindowStyleMask::NSFullSizeContentViewWindowMask);
+
+                        // Force the content view to fill the whole window.
+                        // We use a specific combination of flags that work best with Overlay.
+                        let mut style_mask = ns_window.styleMask();
+                        style_mask.insert(NSWindowStyleMask::NSFullSizeContentViewWindowMask);
+                        ns_window.setStyleMask_(style_mask);
+
+                        // Set collection behavior to support native fullscreen properly.
+                        let _: () = msg_send![ns_window, setCollectionBehavior: NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenPrimary];
                     }
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                {
+                    // On Windows/Linux, we prefer the frameless custom look.
+                    let _ = window.set_decorations(false);
                 }
             }
             Ok(())

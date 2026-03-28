@@ -31,6 +31,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isResizing, setIsResizing] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const appWindowRef = useRef<any>(null);
@@ -106,19 +107,21 @@ export default function App() {
     };
   }, [refreshFiles]);
 
-  // Listen for maximize/unmaximize
+  // Listen for maximize/unmaximize and fullscreen
   useEffect(() => {
     if (isMobile) return;
 
     let unlistenResized: (() => void) | undefined;
     let unlistenMaximized: (() => void) | undefined;
     let unlistenUnmaximized: (() => void) | undefined;
+    let unlistenFullscreen: (() => void) | undefined;
 
     const setupListeners = async () => {
       if (appWindowRef.current) {
         setIsMaximized(await appWindowRef.current.isMaximized());
+        setIsFullscreen(await appWindowRef.current.isFullscreen());
 
-        // Use specific maximize/unmaximize events for better performance
+        // Use specific maximize/unmaximize events
         unlistenMaximized = await appWindowRef.current.listen("tauri://window/maximized", () => {
           setIsMaximized(true);
         });
@@ -126,10 +129,12 @@ export default function App() {
           setIsMaximized(false);
         });
 
-        // Also keep onResized as a fallback but we can't easily avoid it
-        unlistenResized = await appWindowRef.current.onResized(async () => {
+        // Fullscreen listeners
+        unlistenFullscreen = await appWindowRef.current.onResized(async () => {
           const maximized = await appWindowRef.current.isMaximized();
+          const fullscreen = await appWindowRef.current.isFullscreen();
           setIsMaximized(maximized);
+          setIsFullscreen(fullscreen);
         });
       } else {
         setTimeout(setupListeners, 500);
@@ -142,6 +147,7 @@ export default function App() {
       unlistenResized?.();
       unlistenMaximized?.();
       unlistenUnmaximized?.();
+      unlistenFullscreen?.();
     };
   }, [isMobile]);
 
@@ -177,32 +183,8 @@ export default function App() {
   }, []);
 
 
-  // ── Titlebar drag: exactly matches Tauri v2 official pattern ──
-  const titleBarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isMobile) return;
-    const el = titleBarRef.current;
-    if (!el) return;
-
-    const onMouseDown = (e: MouseEvent) => {
-      // Don't drag if clicking on a button
-      if ((e.target as HTMLElement).closest("button")) return;
-      // Primary (left) button only
-      if (e.buttons !== 1) return;
-
-      if (e.detail === 2) {
-        // Double-click → maximize/restore
-        appWindowRef.current?.toggleMaximize();
-      } else {
-        // Single click → start dragging
-        appWindowRef.current?.startDragging();
-      }
-    };
-
-    el.addEventListener("mousedown", onMouseDown);
-    return () => el.removeEventListener("mousedown", onMouseDown);
-  }, [isMobile]);
+  // Note: Dragging is now handled via 'data-tauri-drag-region' attribute in the JSX
+  // which is more robust for Tauri v2 projects.
 
   // ── Global Navigation Prevention ──
   useEffect(() => {
@@ -267,19 +249,19 @@ export default function App() {
     <div className={cn(
       "flex flex-col h-screen w-screen bg-background/85 text-text overflow-hidden",
       !isMacOS && "backdrop-blur-xl", // Native vibrancy used on macOS instead
-      (showNeonBorder && !isMaximized)
+      (showNeonBorder && !isMaximized && !isFullscreen)
         ? (isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]")
-        : (isMobile || isMaximized ? "border-none" : "border border-border/30"),
-      isMaximized || isMobile ? "rounded-none" : (isMacOS ? "rounded-[12px]" : "rounded-[10px]")
+        : (isMobile || isMaximized || isFullscreen ? "border-none" : "border border-border/30"),
+      isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-[12px]" : "rounded-[10px]")
     )}>
       {/* Custom Title Bar */}
     <div
-        ref={titleBarRef}
+        data-tauri-drag-region
         className={cn(
           "flex items-center bg-sidebar/60 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden",
           !isMacOS && "backdrop-blur-md",
           isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-11",
-          isMaximized || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
+          isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
         )}
       >
         {isMobile ? (
@@ -309,31 +291,11 @@ export default function App() {
             <div className="w-10" />
           </div>
         ) : isMacOS ? (
-          // macOS layout...
+          // macOS layout with native traffic lights (decorations: true)
           <>
-            <div className="flex items-center gap-2 pl-3 pr-3 h-full flex-shrink-0">
-              <button
-                onClick={() => appWindowRef.current?.close()}
-                className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 transition-colors flex items-center justify-center group"
-                title="Close"
-              >
-                <X size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
-              </button>
-              <button
-                onClick={() => appWindowRef.current?.minimize()}
-                className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#febc2e]/80 transition-colors flex items-center justify-center group"
-                title="Minimize"
-              >
-                <Minus size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
-              </button>
-              <button
-                onClick={() => appWindowRef.current?.toggleMaximize()}
-                className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#28c840]/80 transition-colors flex items-center justify-center group"
-                title="Maximize"
-              >
-                <Maximize2 size={6} className="opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={3} />
-              </button>
-            </div>
+            {/* Native system traffic lights will appear in the top-left area. 
+                We provide a spacer to keep the branding away from them. */}
+            <div className="w-[72px] h-full flex-shrink-0" />
 
             <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
               <button
@@ -357,6 +319,7 @@ export default function App() {
               )}
             </div>
 
+            {/* Spacer for symmetrical title look if needed */}
             <div className="w-[140px] flex-shrink-0" />
           </>
         ) : (
