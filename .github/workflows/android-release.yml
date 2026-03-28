@@ -34,6 +34,9 @@ jobs:
       - name: install tauri android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 
+      - name: initialize tauri android
+        run: npm run tauri android init -- --ci
+
       - name: get version
         id: version
         run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT

@@ -28,7 +28,9 @@ db.json
 
 # Tauri/Rust
 src-tauri/target
-src-tauri/gen
+# src-tauri/gen is required for mobile projects in Tauri v2
+!src-tauri/gen/
+src-tauri/target
 
 # Environment (contains local credentials - NEVER push to remote)
 .env
