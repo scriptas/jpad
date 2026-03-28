@@ -184,11 +184,11 @@ fn get_notes_root(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn reveal_path(path: String) -> Result<(), String> {
+fn reveal_path(_path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        let path = path.replace('/', "\\");
+        let path = _path.replace('/', "\\");
         Command::new("explorer")
             .arg("/select,")
             .arg(path)
@@ -200,16 +200,16 @@ fn reveal_path(path: String) -> Result<(), String> {
         use std::process::Command;
         Command::new("open")
             .arg("-R")
-            .arg(path)
+            .arg(_path)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "linux")]
     {
         use std::process::Command;
-        let parent = std::path::Path::new(&path)
+        let parent = std::path::Path::new(&_path)
             .parent()
-            .unwrap_or(std::path::Path::new(&path));
+            .unwrap_or(std::path::Path::new(&_path));
         Command::new("xdg-open")
             .arg(parent)
             .spawn()
@@ -328,14 +328,19 @@ fn delete_with_terminal(paths: Vec<String>) -> Result<(), String> {
             .map_err(|e| format!("Failed to open CMD: {}", e))?;
         Ok(())
     }
+    
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        Err("Terminal deletion is not supported on this platform".to_string())
+    }
 }
 
 #[tauri::command]
-fn open_folder(path: String) -> Result<(), String> {
+fn open_folder(_path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        let path = path.replace('/', "\\");
+        let path = _path.replace('/', "\\");
         Command::new("explorer")
             .arg(path)
             .spawn()
@@ -345,7 +350,7 @@ fn open_folder(path: String) -> Result<(), String> {
     {
         use std::process::Command;
         Command::new("open")
-            .arg(path)
+            .arg(_path)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -353,7 +358,7 @@ fn open_folder(path: String) -> Result<(), String> {
     {
         use std::process::Command;
         Command::new("xdg-open")
-            .arg(path)
+            .arg(_path)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -521,32 +526,39 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
 }
 
 #[tauri::command]
-async fn open_in_new_window(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    let label = format!("window-{}", timestamp);
-    
-    // Simple URL encoding for the path
-    let encoded_path = path.replace('%', "%25")
-        .replace(' ', "%20")
-        .replace('?', "%3F")
-        .replace('#', "%23")
-        .replace('&', "%26")
-        .replace('=', "%3D");
-    
-    let url = format!("index.html?file={}&sidebar=false", encoded_path);
-    
-    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
-        .title(format!("JPad - {}", path))
-        .inner_size(1000.0, 700.0)
-        .decorations(false)
-        .transparent(true)
-        .build()
-        .map_err(|e| e.to_string())?;
-    Ok(())
+async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(), String> {
+    #[cfg(not(mobile))]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let label = format!("window-{}", timestamp);
+        
+        // Simple URL encoding for the path
+        let encoded_path = _path.replace('%', "%25")
+            .replace(' ', "%20")
+            .replace('?', "%3F")
+            .replace('#', "%23")
+            .replace('&', "%26")
+            .replace('=', "%3D");
+        
+        let url = format!("index.html?file={}&sidebar=false", encoded_path);
+        
+        tauri::WebviewWindowBuilder::new(&_app, label, tauri::WebviewUrl::App(url.into()))
+            .title(format!("JPad - {}", _path))
+            .inner_size(1000.0, 700.0)
+            .decorations(false)
+            .transparent(true)
+            .build()
+            .map_err(|e: tauri::Error| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(mobile)]
+    {
+        Err("New windows are not supported on mobile".to_string())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
