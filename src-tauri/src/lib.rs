@@ -219,14 +219,14 @@ fn reveal_path(_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn delete_with_terminal(_paths: Vec<String>) -> Result<(), String> {
+fn delete_with_terminal(paths: Vec<String>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
         
         // Escape paths for shell
-        let escaped_paths: Vec<String> = _paths.iter()
-            .map(|p| format!("'{}'", p.replace("'", "'\\''")))
+        let escaped_paths: Vec<String> = paths.iter()
+            .map(|p: &String| format!("'{}'", p.replace("'", "'\\''")))
             .collect();
         
         // Create rm -rf command
@@ -239,7 +239,7 @@ fn delete_with_terminal(_paths: Vec<String>) -> Result<(), String> {
                 activate
                 do script "echo 'Deleting files:' && echo '{}' && echo '' && echo 'Executing: {}' && sleep 2 && {} && echo '' && echo 'Files deleted. Press any key to close...' && read -n 1"
             end tell"#,
-            _paths.join("\n"),
+            paths.join("\n"),
             rm_command,
             rm_command
         );
@@ -257,7 +257,7 @@ fn delete_with_terminal(_paths: Vec<String>) -> Result<(), String> {
         use std::process::Command;
         
         let escaped_paths: Vec<String> = paths.iter()
-            .map(|p| format!("'{}'", p.replace("'", "'\\''")))
+            .map(|p: &String| format!("'{}'", p.replace("'", "'\\''")))
             .collect();
         
         let rm_command = format!("rm -rf {}", escaped_paths.join(" "));
@@ -272,19 +272,19 @@ fn delete_with_terminal(_paths: Vec<String>) -> Result<(), String> {
                     .arg("--")
                     .arg("sh")
                     .arg("-c")
-                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", _paths.join("\n"), rm_command, rm_command))
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
                     .spawn(),
                 "konsole" => Command::new(term)
                     .arg("-e")
                     .arg("sh")
                     .arg("-c")
-                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", _paths.join("\n"), rm_command, rm_command))
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
                     .spawn(),
                 _ => Command::new(term)
                     .arg("-e")
                     .arg("sh")
                     .arg("-c")
-                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", _paths.join("\n"), rm_command, rm_command))
+                    .arg(format!("echo 'Deleting files:'; echo '{}'; echo ''; echo 'Executing: {}'; sleep 2; {}; echo ''; echo 'Files deleted. Press any key to close...'; read -n 1", paths.join("\n"), rm_command, rm_command))
                     .spawn(),
             };
             
@@ -305,8 +305,8 @@ fn delete_with_terminal(_paths: Vec<String>) -> Result<(), String> {
     {
         use std::process::Command;
         
-        let paths_list = _paths.join("\n");
-        let del_command = _paths.iter()
+        let paths_list = paths.join("\n");
+        let del_command = paths.iter()
             .map(|p| {
                 let p_win = p.replace('/', "\\");
                 if Path::new(p).is_dir() {
