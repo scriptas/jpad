@@ -29,14 +29,6 @@ Made JPad, note taking software. Free. Light. Colorful. Simple, yet supports ALL
 <img height="902" src="https://github.com/user-attachments/assets/ea4eb713-4915-4beb-8bd5-09aa6a3dfa5a" height="600" alt="main app design"/>
 <img height="902" src="https://github.com/user-attachments/assets/e52322a6-8147-4e2f-882a-8abf2c4b6964" height="600" alt="settings app design"/>
 
-## 🚀 Version 1.5 - Cloud & Wayland Sync
-
-The latest release brings full cloud synchronization and massive improvements for Linux users.
-
-- **Cloud Sync**: Work across devices using **Supabase Storage** or **WebDAV**. Your notes are synced as portable files to your own bucket—not locked in a database.
-- **Wayland Native**: Optimized for **Hyprland** and Arch Linux. Native GDK Wayland support with zero protocol errors.
-- **Security First**: Encryption and local-only credential storage. No data ever hits our servers—it goes directly from your app to your storage provider.
-
 ## Tech Stack
 
 - **Shell & Backend**: [Tauri v2](https://tauri.app/) (Rust) Because it's popular. Also fast, maybe.
