@@ -26,8 +26,10 @@ Made JPad, note taking software. Free. Light. Colorful. Simple, yet supports ALL
   <img src="https://github.com/user-attachments/assets/6b73bca4-f8c8-447f-a0e8-eef3b19f0476" height="48" alt="android" />
 </div>
 
-<img height="902" src="https://github.com/user-attachments/assets/ea4eb713-4915-4beb-8bd5-09aa6a3dfa5a" height="600" alt="main app design"/>
-<img height="902" src="https://github.com/user-attachments/assets/e52322a6-8147-4e2f-882a-8abf2c4b6964" height="600" alt="settings app design"/>
+<img src="https://github.com/user-attachments/assets/ea4eb713-4915-4beb-8bd5-09aa6a3dfa5a" height="600" alt="main app design"/>
+<img src="https://github.com/user-attachments/assets/e52322a6-8147-4e2f-882a-8abf2c4b6964" height="600" alt="settings app design"/>
+<img src="https://github.com/user-attachments/assets/cd8cc687-84ff-4dab-a767-f5dba3be5e2e"  height="400" alt="android app design" />
+
 
 ## Tech Stack
 
