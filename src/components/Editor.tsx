@@ -716,7 +716,7 @@ export default function Editor() {
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background min-h-0">
-            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/30 backdrop-blur-sm z-10 flex-wrap flex-shrink-0">
+            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/90 backdrop-blur-sm z-20 flex-wrap sticky top-0 flex-shrink-0">
                 <ToolbarButton
                     onClick={() => editor?.chain().focus().undo().run()}
                     title="Undo (Ctrl+Z)"

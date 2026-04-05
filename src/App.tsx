@@ -75,10 +75,17 @@ export default function App() {
     if (mobile && window.visualViewport) {
       vpHandler = () => {
         const vp = window.visualViewport!;
-        document.documentElement.style.height = `${vp.height}px`;
-        document.body.style.height = `${vp.height}px`;
+        const height = `${vp.height}px`;
+        document.documentElement.style.height = height;
+        document.body.style.height = height;
+        
+        // Also apply to #root and the main app container for maximum stability
+        const rootEl = document.getElementById("root");
+        if (rootEl) rootEl.style.height = height;
+
         // Scroll back to top in case the browser panned
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0;
       };
       window.visualViewport.addEventListener("resize", vpHandler);
       window.visualViewport.addEventListener("scroll", vpHandler);
@@ -261,7 +268,7 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen w-screen bg-background/85 text-text overflow-hidden",
+      "flex flex-col h-full w-full bg-background/85 text-text overflow-hidden",
       !isMacOS && "backdrop-blur-xl", // Native vibrancy used on macOS instead
       (showNeonBorder && !isMaximized && !isFullscreen)
         ? (isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]")
