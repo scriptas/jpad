@@ -9,6 +9,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*'
   workflow_dispatch:
 
 jobs:
@@ -59,6 +60,6 @@ jobs:
           tagName: v__VERSION__ # the action will replace this with the version from tauri.conf.json
           releaseName: "JPad v__VERSION__"
           releaseBody: "See the assets below to download JPad."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
