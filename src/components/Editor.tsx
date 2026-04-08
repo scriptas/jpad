@@ -9,6 +9,7 @@ import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
+import { Extension } from "@tiptap/core";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
@@ -252,6 +253,25 @@ const CustomImage = Image.extend({
     },
 });
 
+/**
+ * Custom Tab handler to insert 4 spaces like an IDE
+ * while preserving list indentation behavior.
+ */
+const TabHandler = Extension.create({
+    name: 'tabHandler',
+    addKeyboardShortcuts() {
+        return {
+            Tab: () => {
+                if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
+                    return false;
+                }
+                this.editor.commands.insertContent('    ');
+                return true;
+            },
+        };
+    },
+});
+
 export default function Editor() {
     const { activeFileId, files, saveActiveFile, loadFileContent, isSaving, setEditorContent, setSelectedContent } = useStore();
     const { vimModeEnabled } = useSettingsStore();
@@ -289,6 +309,7 @@ export default function Editor() {
                     placeholder: "Start writing your thoughts...",
                     emptyEditorClass: "is-editor-empty",
                 }),
+                TabHandler,
             ],
             content: "",
             editorProps: {
