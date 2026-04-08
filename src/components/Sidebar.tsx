@@ -557,7 +557,7 @@ export default function Sidebar() {
             setSelectedFiles(newSelected);
             setLastSelectedId(node.id);
         } else {
-            setSelectedFiles(new Set());
+            setSelectedFiles(new Set([node.id]));
             setLastSelectedId(node.id);
             if (node.type === "folder") {
                 toggleExpand(node.id);
@@ -724,6 +724,8 @@ export default function Sidebar() {
                     )}
                     onClick={() => {
                         setActiveFileId(result.path);
+                        setSelectedFiles(new Set([result.path]));
+                        setLastSelectedId(result.path);
                         setSearchQuery("");
                         clearSearch();
                         if (isMobile) toggleSidebar();

@@ -173,7 +173,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             await invoke("create_file", { path });
             await get().refreshFiles();
-            set({ activeFileId: path }); // Instantly activate the new file
+            set({ activeFileId: path, lastSelectedId: path, selectedFiles: new Set([path]) }); // Instantly activate and select the new file
         } catch (error) {
             console.error("Failed to create file:", error);
         }
@@ -183,6 +183,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             await invoke("create_folder", { path });
             await get().refreshFiles();
+            set({ lastSelectedId: path, selectedFiles: new Set([path]) });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("Failed to create folder:", message);
