@@ -431,7 +431,7 @@ export default function App() {
         )}
 
         <main className="flex-1 flex flex-col overflow-hidden bg-transparent relative min-h-0">
-          <div className="flex-1 overflow-hidden relative min-h-0 bg-background/20">
+          <div className="flex-1 flex flex-col overflow-hidden relative min-h-0 bg-background/20">
             <Editor />
           </div>
           <StatusBar />
