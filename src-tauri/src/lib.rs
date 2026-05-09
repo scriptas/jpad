@@ -563,6 +563,16 @@ async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(),
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Fix for GDK "Error 71 (Protocol error)" crash on Wayland + NVIDIA.
+    // WebKitGTK's DMA-BUF renderer conflicts with NVIDIA drivers on Wayland,
+    // causing immediate window crashes. This disables the problematic renderer.
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
