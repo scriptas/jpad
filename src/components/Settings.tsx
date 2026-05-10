@@ -400,7 +400,11 @@ export default function Settings() {
         getActiveTheme,
     } = useThemeStore();
 
-    const [activeSection, setActiveSection] = useState<SettingsSection>("appearance");
+    const p = platform();
+    const isMobile = p === "android" || p === "ios";
+
+    // On mobile, start with no section selected (shows the menu list)
+    const [activeSection, setActiveSection] = useState<SettingsSection | null>(isMobile ? null : "appearance");
     const [editingTheme, setEditingTheme] = useState<Theme | null>(null);
     const [editColors, setEditColors] = useState<ThemeColors | null>(null);
     const [editName, setEditName] = useState("");
@@ -564,21 +568,42 @@ export default function Settings() {
             {/* Settings Panel */}
             <div
                 ref={panelRef}
-                className="relative z-10 w-[780px] max-h-[85vh] bg-sidebar border-2 border-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+                className={cn(
+                    "relative z-10 bg-sidebar border-2 border-border shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in duration-300",
+                    isMobile
+                        ? "fixed inset-0 w-full h-full border-none rounded-none"
+                        : "w-[780px] max-h-[85vh] rounded-2xl zoom-in-95"
+                )}
             >
-                {/* Header */}
                 <div
                     ref={headerRef}
-                    className="flex items-center justify-between px-6 py-4 border-b-2 border-border bg-surface/30 cursor-move"
+                    className={cn(
+                        "flex items-center justify-between px-6 py-4 border-b-2 border-border bg-surface/30",
+                        !isMobile && "cursor-move"
+                    )}
                 >
                     <div className="flex items-center gap-3">
+                        {isMobile && activeSection && !editingTheme && (
+                            <button
+                                onClick={() => setActiveSection(null)}
+                                className="p-2 -ml-2 hover:bg-surface-hover rounded-lg transition-colors mr-1"
+                            >
+                                <RotateCcw size={16} className="text-primary transform -rotate-90" />
+                            </button>
+                        )}
                         <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
                             <Palette size={16} className="text-primary" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-semibold text-text">Settings</h2>
+                            <h2 className="text-sm font-semibold text-text">
+                                {isMobile && activeSection === "appearance" ? "Appearance" :
+                                 isMobile && activeSection === "filename" ? "File Settings" :
+                                 isMobile && activeSection === "vim" ? "Vim Mode" :
+                                 isMobile && activeSection === "cloud" ? "Cloud Sync" :
+                                 "Settings"}
+                            </h2>
                             <p className="text-[11px] text-text-muted/60">
-                                Customize your editor
+                                {isMobile && activeSection ? "Customize your experience" : "Customize your editor"}
                             </p>
                         </div>
                     </div>
@@ -593,76 +618,94 @@ export default function Settings() {
                 {/* Content with Sidebar */}
                 <div className="flex-1 flex overflow-hidden">
                     {/* Sidebar Navigation */}
-                    <div className="w-48 border-r-2 border-border bg-surface/20 p-3 overflow-y-auto">
-                        <nav className="space-y-1">
-                            <button
-                                onClick={() => {
-                                    setActiveSection("appearance");
-                                    if (editingTheme) handleCancelEdit();
-                                }}
-                                className={cn(
-                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
-                                    activeSection === "appearance"
-                                        ? "bg-primary/15 text-primary border border-primary/20"
-                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
-                                )}
-                            >
-                                <Palette size={14} />
-                                <span>Appearance</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setActiveSection("filename");
-                                    if (editingTheme) handleCancelEdit();
-                                }}
-                                className={cn(
-                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
-                                    activeSection === "filename"
-                                        ? "bg-primary/15 text-primary border border-primary/20"
-                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
-                                )}
-                            >
-                                <FileText size={14} />
-                                <span>Default File Name</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setActiveSection("vim");
-                                    if (editingTheme) handleCancelEdit();
-                                }}
-                                className={cn(
-                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
-                                    activeSection === "vim"
-                                        ? "bg-primary/15 text-primary border border-primary/20"
-                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
-                                )}
-                            >
-                                <span className="text-sm font-mono">{"</>"}</span>
-                                <span>Vim Mode</span>
-                            </button>
+                    {(!isMobile || !activeSection) && (
+                        <div className={cn(
+                            "border-r-2 border-border bg-surface/20 p-3 overflow-y-auto transition-all",
+                            isMobile ? "w-full" : "w-48"
+                        )}>
+                            <nav className="space-y-1.5">
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("appearance");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left",
+                                        activeSection === "appearance"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Palette size={18} />
+                                        <span>Appearance</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("filename");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left",
+                                        activeSection === "filename"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <FileText size={18} />
+                                        <span>Default File Name</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("vim");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left",
+                                        activeSection === "vim"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg font-mono leading-none">{"</>"}</span>
+                                        <span>Vim Mode</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
 
-                            <div className="my-2 border-t border-border/30" />
+                                <div className="my-2 border-t border-border/30" />
 
-                            <button
-                                onClick={() => {
-                                    setActiveSection("cloud");
-                                    if (editingTheme) handleCancelEdit();
-                                }}
-                                className={cn(
-                                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left",
-                                    activeSection === "cloud"
-                                        ? "bg-primary/15 text-primary border border-primary/20"
-                                        : "text-text-muted hover:text-text hover:bg-surface-hover"
-                                )}
-                            >
-                                <Cloud size={14} />
-                                <span>Cloud Sync</span>
-                            </button>
-                        </nav>
-                    </div>
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("cloud");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left",
+                                        activeSection === "cloud"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Cloud size={18} />
+                                        <span>Cloud Sync</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
+                            </nav>
+                        </div>
+                    )}
 
                     {/* Main Content Area */}
-                    <div className="flex-1 overflow-y-auto min-h-[500px]">
+                    {(!isMobile || activeSection) && (
+                        <div className="flex-1 overflow-y-auto min-h-0 bg-background/5">
                         {/* Appearance Section */}
                         {activeSection === "appearance" && (
                             <>
@@ -857,7 +900,10 @@ export default function Settings() {
                                                     Built-in Themes
                                                 </h3>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className={cn(
+                                                "grid gap-3",
+                                                isMobile ? "grid-cols-2" : "grid-cols-3"
+                                            )}>
                                                 {PRESET_THEMES.map((theme) => (
                                                     <ThemePreviewCard
                                                         key={theme.id}
@@ -889,7 +935,10 @@ export default function Settings() {
                                             </div>
 
                                             {customThemes.length > 0 ? (
-                                                <div className="grid grid-cols-3 gap-3">
+                                                <div className={cn(
+                                                    "grid gap-3",
+                                                    isMobile ? "grid-cols-2" : "grid-cols-3"
+                                                )}>
                                                     {customThemes.map((theme) => (
                                                         <div key={theme.id} className="relative group">
                                                             <ThemePreviewCard
