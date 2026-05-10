@@ -269,6 +269,7 @@ export default function App() {
   return (
     <div className={cn(
       "flex flex-col h-full w-full bg-background/85 text-text overflow-hidden",
+      isMobile && "fixed inset-0", // Prevent browser panning on mobile
       !isMacOS && "backdrop-blur-xl", // Native vibrancy used on macOS instead
       (showNeonBorder && !isMaximized && !isFullscreen)
         ? (isMobile ? "border-[6px] border-primary/20" : "border-2 border-primary/30 shadow-[0_0_40px_rgba(0,0,0,0.5)]")
@@ -279,7 +280,7 @@ export default function App() {
     <div
         data-tauri-drag-region
         className={cn(
-          "flex items-center bg-sidebar/60 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden",
+          "flex items-center bg-sidebar/80 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden z-50",
           !isMacOS && "backdrop-blur-md",
           isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-11",
           isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
