@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { setStyle, Style } from "@tauri-apps/plugin-statusbar";
 
 export interface ThemeColors {
     primary: string;
@@ -309,6 +310,51 @@ export function applyThemeToDOM(colors: ThemeColors) {
     root.style.setProperty("--color-text", colors.text);
     root.style.setProperty("--color-text-muted", colors.textMuted);
     root.style.setProperty("--color-border", colors.border);
+
+    updateSystemUI(colors);
+}
+
+/** 
+ * Update system-level UI elements like status bar style and theme color.
+ * This helps mobile OS (Android/iOS) to adapt the top bar text/icon color.
+ */
+function updateSystemUI(colors: ThemeColors) {
+    const root = document.documentElement;
+
+    // Determine if the theme is dark based on background luminance
+    const isDark = (color: string) => {
+        const hex = color.replace('#', '');
+        if (hex.length < 6) return true; // Default to dark for short/invalid hex
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance < 0.5;
+    };
+
+    const dark = isDark(colors.background);
+
+    // 1. Set color-scheme to let the browser/webview know our preference.
+    // This often automatically toggles the status bar text color on mobile.
+    root.style.colorScheme = dark ? 'dark' : 'light';
+
+    // 2. Update/Create the theme-color meta tag for mobile status bar background.
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'theme-color');
+        document.head.appendChild(meta);
+    }
+    // Use sidebar color if available, otherwise background
+    meta.setAttribute('content', colors.sidebar || colors.background);
+
+    // 3. Use Tauri Statusbar plugin if on mobile for explicit style control.
+    // This is the most reliable way to fix the "invisible icons" issue.
+    if (window.__TAURI_INTERNALS__) {
+        setStyle(dark ? Style.Light : Style.Dark).catch(() => {
+            // Silently fail if plugin not initialized or not on mobile
+        });
+    }
 }
 
 /** Initialize theme on app start */
