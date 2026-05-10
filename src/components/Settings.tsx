@@ -578,7 +578,8 @@ export default function Settings() {
                 <div
                     ref={headerRef}
                     className={cn(
-                        "flex items-center justify-between px-6 py-4 border-b-2 border-border bg-surface/30",
+                        "flex items-center justify-between px-6 border-b-2 border-border bg-surface/30",
+                        isMobile ? "pt-10 pb-4" : "py-4",
                         !isMobile && "cursor-move"
                     )}
                 >
@@ -1087,8 +1088,9 @@ export default function Settings() {
                             </div>
                         )}
                     </div>
-                </div>
+                )}
             </div>
         </div>
-    );
+    </div>
+);
 }
