@@ -69,28 +69,54 @@ export default function App() {
       });
     }
 
-    // On mobile, listen to visualViewport resize so that the soft keyboard
-    // shrinks the layout instead of panning the whole page upward.
+    // On mobile, aggressively prevent Android WebView from panning the
+    // document when the soft keyboard opens and a contenteditable is focused.
+    // We lock html/body/#root to position:fixed so the browser physically
+    // cannot scroll them, and add a scroll listener as a safety net.
     let vpHandler: (() => void) | undefined;
-    if (mobile && window.visualViewport) {
-      vpHandler = () => {
-        const vp = window.visualViewport!;
-        const height = `${vp.height}px`;
-        document.documentElement.style.height = height;
-        document.body.style.height = height;
-        
-        // Also apply to #root and the main app container for maximum stability
-        const rootEl = document.getElementById("root");
-        if (rootEl) rootEl.style.height = height;
+    let scrollResetHandler: (() => void) | undefined;
+    if (mobile) {
+      // Lock the document so Android WebView cannot pan it
+      const lockElements = [document.documentElement, document.body];
+      const rootEl = document.getElementById("root");
+      if (rootEl) lockElements.push(rootEl);
 
-        // Scroll back to top in case the browser panned
-        window.scrollTo(0, 0);
+      for (const el of lockElements) {
+        el.style.position = "fixed";
+        el.style.top = "0";
+        el.style.left = "0";
+        el.style.right = "0";
+        el.style.width = "100%";
+        el.style.overflow = "hidden";
+      }
+
+      // Safety net: if the browser somehow scrolls the document, reset it
+      scrollResetHandler = () => {
+        if (window.scrollY !== 0 || window.scrollX !== 0) {
+          window.scrollTo(0, 0);
+        }
+        document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       };
-      window.visualViewport.addEventListener("resize", vpHandler);
-      window.visualViewport.addEventListener("scroll", vpHandler);
-      // Set initial value
-      vpHandler();
+      window.addEventListener("scroll", scrollResetHandler, { passive: true });
+
+      if (window.visualViewport) {
+        vpHandler = () => {
+          const vp = window.visualViewport!;
+          const height = `${vp.height}px`;
+
+          for (const el of lockElements) {
+            el.style.height = height;
+          }
+
+          // Reset any panning that slipped through
+          scrollResetHandler!();
+        };
+        window.visualViewport.addEventListener("resize", vpHandler);
+        window.visualViewport.addEventListener("scroll", vpHandler);
+        // Set initial value
+        vpHandler();
+      }
     }
 
     // Periodic file system refresh to detect external changes
@@ -107,6 +133,9 @@ export default function App() {
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener("focus", handleFocus);
+      if (scrollResetHandler) {
+        window.removeEventListener("scroll", scrollResetHandler);
+      }
       if (vpHandler && window.visualViewport) {
         window.visualViewport.removeEventListener("resize", vpHandler);
         window.visualViewport.removeEventListener("scroll", vpHandler);
