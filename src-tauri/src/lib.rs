@@ -576,7 +576,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_statusbar::init())
         .setup(|_app| {
             use tauri::Manager;
             if let Some(window) = _app.get_webview_window("main") {

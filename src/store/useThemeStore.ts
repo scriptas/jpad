@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { setStyle, Style } from "@tauri-apps/plugin-statusbar";
 
 export interface ThemeColors {
     primary: string;
@@ -318,7 +317,7 @@ export function applyThemeToDOM(colors: ThemeColors) {
  * Update system-level UI elements like status bar style and theme color.
  * This helps mobile OS (Android/iOS) to adapt the top bar text/icon color.
  */
-function updateSystemUI(colors: ThemeColors) {
+async function updateSystemUI(colors: ThemeColors) {
     const root = document.documentElement;
 
     // Determine if the theme is dark based on background luminance
@@ -348,12 +347,24 @@ function updateSystemUI(colors: ThemeColors) {
     // Use sidebar color if available, otherwise background
     meta.setAttribute('content', colors.sidebar || colors.background);
 
-    // 3. Use Tauri Statusbar plugin if on mobile for explicit style control.
-    // This is the most reliable way to fix the "invisible icons" issue.
-    if ((window as any).__TAURI_INTERNALS__) {
-        setStyle(dark ? Style.Light : Style.Dark).catch(() => {
-            // Silently fail if plugin not initialized or not on mobile
-        });
+    // 3. For Android WebView, call the JavaScript interface directly
+    // This is more reliable than trying to use Tauri plugins
+    if ((window as any).AndroidStatusBar) {
+        try {
+            (window as any).AndroidStatusBar.setStyle(dark);
+        } catch (error) {
+            console.debug('AndroidStatusBar interface not available:', error);
+        }
+    }
+
+    // 4. Additional fallback: Use viewport-fit and safe-area-inset
+    // This helps ensure the status bar is properly styled
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+        const content = viewport.getAttribute('content') || '';
+        if (!content.includes('viewport-fit')) {
+            viewport.setAttribute('content', content + ', viewport-fit=cover');
+        }
     }
 }
 

@@ -67,6 +67,8 @@ export default function Sidebar() {
     const [touchDraggedId, setTouchDraggedId] = useState<string | null>(null);
     const [touchTargetId, setTouchTargetId] = useState<string | null>(null);
     const [touchIndicatorPos, setTouchIndicatorPos] = useState({ x: 0, y: 0 });
+    const [touchStartPos, setTouchStartPos] = useState({ x: 0, y: 0 });
+    const touchDragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [folderDialogParentPath, setFolderDialogParentPath] = useState<string | undefined>();
     const [folderNameInput, setFolderNameInput] = useState("");
     const folderInputRef = useRef<HTMLInputElement>(null);
@@ -197,6 +199,15 @@ export default function Sidebar() {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [files, setSelectedFiles, clearSelection]);
+
+    // Cleanup touch drag timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (touchDragTimeoutRef.current) {
+                clearTimeout(touchDragTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleCreateFile = async (parentPath?: string) => {
         const { fileNamePrefix } = useSettingsStore.getState();
@@ -350,16 +361,32 @@ export default function Sidebar() {
     };
 
     const handleTouchStart = (e: React.TouchEvent, id: string) => {
-        // Prevent accidental triggers during scrolling? 
-        // We'll use a short timeout later if needed.
-        setTouchDraggedId(id);
         const touch = e.touches[0];
+        setTouchStartPos({ x: touch.clientX, y: touch.clientY });
         setTouchIndicatorPos({ x: touch.clientX, y: touch.clientY });
+        
+        // Set a timeout to start dragging after 500ms of holding
+        touchDragTimeoutRef.current = setTimeout(() => {
+            setTouchDraggedId(id);
+        }, 500);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (!touchDraggedId) return;
         const touch = e.touches[0];
+        const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+        const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+        
+        // If user moves finger more than 10px before drag starts, cancel drag and allow scroll
+        if (!touchDraggedId && (deltaX > 10 || deltaY > 10)) {
+            if (touchDragTimeoutRef.current) {
+                clearTimeout(touchDragTimeoutRef.current);
+                touchDragTimeoutRef.current = null;
+            }
+            return;
+        }
+        
+        if (!touchDraggedId) return;
+        
         setTouchIndicatorPos({ x: touch.clientX, y: touch.clientY });
 
         // Find drop target under finger
@@ -378,6 +405,12 @@ export default function Sidebar() {
     };
 
     const handleTouchEnd = async () => {
+        // Clear the drag timeout if it hasn't fired yet
+        if (touchDragTimeoutRef.current) {
+            clearTimeout(touchDragTimeoutRef.current);
+            touchDragTimeoutRef.current = null;
+        }
+        
         if (!touchDraggedId) return;
 
         const sourcePath = touchDraggedId;
@@ -621,7 +654,7 @@ export default function Sidebar() {
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         className={cn(
-                            "flex items-center py-[6px] px-2 cursor-pointer rounded-md mx-1 group transition-all duration-150 relative touch-none",
+                            "flex items-center py-[6px] px-2 cursor-pointer rounded-md mx-1 group transition-all duration-150 relative",
                             "hover:bg-surface-hover/60",
                             isActive && "bg-surface text-primary ring-1 ring-primary/20",
                             isSelected && !isActive && "bg-primary/20 ring-1 ring-primary/40",
