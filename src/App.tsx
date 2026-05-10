@@ -61,6 +61,33 @@ export default function App() {
     setIsMacOS(p === "macos");
     const mobile = p === "android" || p === "ios";
     setIsMobile(mobile);
+    
+    // Handle Android back button
+    let backPressHandler: (() => void) | undefined;
+    if (mobile) {
+      backPressHandler = () => {
+        const { activeFileId, setActiveFileId, sidebarVisible, setSidebarVisible } = useStore.getState();
+        
+        // If a file is open, close it and return to file explorer
+        if (activeFileId) {
+          setActiveFileId(null);
+          return;
+        }
+        
+        // If sidebar is open, close it
+        if (sidebarVisible) {
+          setSidebarVisible(false);
+          return;
+        }
+        
+        // If nothing is open, close the app
+        if (window.AndroidNavigation && window.AndroidNavigation.closeApp) {
+          window.AndroidNavigation.closeApp();
+        }
+      };
+      
+      window.addEventListener('android-back-pressed', backPressHandler);
+    }
 
     if (!mobile) {
       import("@tauri-apps/api/window").then((m) => {
@@ -113,6 +140,9 @@ export default function App() {
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener("focus", handleFocus);
+      if (backPressHandler) {
+        window.removeEventListener('android-back-pressed', backPressHandler);
+      }
       if (scrollResetHandler) {
         window.removeEventListener("scroll", scrollResetHandler);
       }

@@ -7,8 +7,11 @@ import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.OnBackPressedCallback
 
 class MainActivity : TauriActivity() {
+  private var webView: WebView? = null
+  
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
@@ -20,12 +23,24 @@ class MainActivity : TauriActivity() {
     // Use post to ensure webview is fully initialized
     window.decorView.post {
       try {
-        val webView = findWebView(window.decorView as ViewGroup)
+        webView = findWebView(window.decorView as ViewGroup)
         webView?.addJavascriptInterface(StatusBarInterface(this), "AndroidStatusBar")
+        webView?.addJavascriptInterface(NavigationInterface(this), "AndroidNavigation")
       } catch (e: Exception) {
         android.util.Log.e("MainActivity", "Failed to add JS interface", e)
       }
     }
+    
+    // Handle Android back button
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        // Notify the web app about back press
+        webView?.evaluateJavascript(
+          "(function() { window.dispatchEvent(new CustomEvent('android-back-pressed')); })()",
+          null
+        )
+      }
+    })
   }
   
   // Recursively find WebView in view hierarchy
@@ -42,12 +57,22 @@ class MainActivity : TauriActivity() {
     return null
   }
   
-  // JavaScript interface class
+  // JavaScript interface class for status bar
   class StatusBarInterface(private val activity: MainActivity) {
     @JavascriptInterface
     fun setStyle(dark: Boolean) {
       activity.runOnUiThread {
         activity.setStatusBarAppearance(dark)
+      }
+    }
+  }
+  
+  // JavaScript interface class for navigation
+  class NavigationInterface(private val activity: MainActivity) {
+    @JavascriptInterface
+    fun closeApp() {
+      activity.runOnUiThread {
+        activity.finish()
       }
     }
   }
