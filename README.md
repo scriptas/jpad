@@ -61,14 +61,22 @@ To get started locally:
 # Install dependencies
 npm install
 
-# Run in development mode (optimised for Wayland/X11)
+# Run in development mode
+# On Linux, this script optimizes Wayland/Hyprland rendering
 ./dev.sh
 
-# Build for production
-./build.sh
+# On Windows/macOS, you can just run:
+npm run tauri:dev
 ```
 
-Works on Windows, macOS, and Linux.
+### Building for Production
+
+```bash
+# Build frontend and Tauri app
+npm run build:all
+```
+
+Installers will be generated in `src-tauri/target/release/bundle/`.
 
 ---
 
