@@ -350,7 +350,7 @@ function updateSystemUI(colors: ThemeColors) {
 
     // 3. Use Tauri Statusbar plugin if on mobile for explicit style control.
     // This is the most reliable way to fix the "invisible icons" issue.
-    if (window.__TAURI_INTERNALS__) {
+    if ((window as any).__TAURI_INTERNALS__) {
         setStyle(dark ? Style.Light : Style.Dark).catch(() => {
             // Silently fail if plugin not initialized or not on mobile
         });
