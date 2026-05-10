@@ -737,194 +737,6 @@ export default function Editor() {
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background min-h-0">
-            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/90 backdrop-blur-sm z-20 overflow-x-auto flex-shrink-0">
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().undo().run()}
-                    title="Undo (Ctrl+Z)"
-                >
-                    <Undo2 size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().redo().run()}
-                    title="Redo (Ctrl+Y)"
-                >
-                    <Redo2 size={15} />
-                </ToolbarButton>
-
-                <div className="w-[1px] h-4 bg-border mx-1" />
-
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-                    isActive={editor?.isActive("heading", { level: 1 }) ?? false}
-                    title="Heading 1"
-                >
-                    <Heading1 size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                    isActive={editor?.isActive("heading", { level: 2 }) ?? false}
-                    title="Heading 2"
-                >
-                    <Heading2 size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-                    isActive={editor?.isActive("heading", { level: 3 }) ?? false}
-                    title="Heading 3"
-                >
-                    <Heading3 size={15} />
-                </ToolbarButton>
-
-                <div className="w-[1px] h-4 bg-border mx-1" />
-
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleBold().run()}
-                    isActive={editor?.isActive("bold") ?? false}
-                    title="Bold (Ctrl+B)"
-                >
-                    <Bold size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleItalic().run()}
-                    isActive={editor?.isActive("italic") ?? false}
-                    title="Italic (Ctrl+I)"
-                >
-                    <Italic size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleUnderline().run()}
-                    isActive={editor?.isActive("underline") ?? false}
-                    title="Underline (Ctrl+U)"
-                >
-                    <UnderlineIcon size={15} />
-                </ToolbarButton>
-
-                <div className="w-[1px] h-4 bg-border mx-1" />
-
-                <div className="relative">
-                    <button
-                        onClick={() => { setShowTextColor(!showTextColor); setShowHighlight(false); }}
-                        title="Text Color"
-                        className={cn(
-                            "flex items-center gap-0.5 px-1.5 py-1.5 rounded-md transition-all duration-150",
-                            "hover:bg-surface-hover active:scale-95",
-                            showTextColor && "bg-surface ring-1 ring-primary/20"
-                        )}
-                    >
-                        <Palette size={15} />
-                        <div
-                            className="w-3 h-1.5 rounded-sm mt-0.5"
-                            style={{ backgroundColor: currentTextColor || "#f0e4d0" }}
-                        />
-                        <ChevronDown size={10} className="opacity-50" />
-                    </button>
-                    {showTextColor && (
-                        <ColorPicker
-                            colors={TEXT_COLORS}
-                            currentColor={currentTextColor}
-                            onSelect={(color) => {
-                                if (color) {
-                                    editor?.chain().focus().setColor(color).run();
-                                } else {
-                                    editor?.chain().focus().unsetColor().run();
-                                }
-                            }}
-                            onClose={() => setShowTextColor(false)}
-                            label="Text Color"
-                        />
-                    )}
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => { setShowHighlight(!showHighlight); setShowTextColor(false); }}
-                        title="Highlight"
-                        className={cn(
-                            "flex items-center gap-0.5 px-1.5 py-1.5 rounded-md transition-all duration-150",
-                            "hover:bg-surface-hover active:scale-95",
-                            showHighlight && "bg-surface ring-1 ring-primary/20"
-                        )}
-                    >
-                        <Highlighter size={15} />
-                        <div
-                            className="w-3 h-1.5 rounded-sm mt-0.5"
-                            style={{ backgroundColor: currentHighlight || "transparent", border: currentHighlight ? "none" : "1px dashed #8a7d6b" }}
-                        />
-                        <ChevronDown size={10} className="opacity-50" />
-                    </button>
-                    {showHighlight && (
-                        <ColorPicker
-                            colors={HIGHLIGHT_COLORS}
-                            currentColor={currentHighlight}
-                            onSelect={(color) => {
-                                if (color) {
-                                    editor?.chain().focus().toggleHighlight({ color }).run();
-                                } else {
-                                    editor?.chain().focus().unsetHighlight().run();
-                                }
-                            }}
-                            onClose={() => setShowHighlight(false)}
-                            label="Highlight"
-                        />
-                    )}
-                </div>
-
-                <div className="w-[1px] h-4 bg-border mx-1" />
-
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                    isActive={editor?.isActive("bulletList") ?? false}
-                    title="Bullet List"
-                >
-                    <List size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                    isActive={editor?.isActive("orderedList") ?? false}
-                    title="Numbered List"
-                >
-                    <ListOrdered size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-                    isActive={editor?.isActive("blockquote") ?? false}
-                    title="Blockquote"
-                >
-                    <Quote size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-                    isActive={editor?.isActive("codeBlock") ?? false}
-                    title="Code Block"
-                >
-                    <Code size={15} />
-                </ToolbarButton>
-                <ToolbarButton
-                    onClick={() => editor?.chain().focus().setHorizontalRule().run()}
-                    title="Horizontal Rule"
-                >
-                    <Minus size={15} />
-                </ToolbarButton>
-
-                <div className="flex-1" />
-
-                <div className="flex items-center gap-0.5">
-                    <ToolbarButton onClick={addImage} title="Insert Image">
-                        <ImageIcon size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton onClick={addYoutube} title="Insert YouTube Video">
-                        <YoutubeIcon size={15} />
-                    </ToolbarButton>
-                </div>
-
-                {isSaving && (
-                    <div className="ml-2 flex items-center gap-1.5 text-text-muted/60">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[10px] font-medium">Saving</span>
-                    </div>
-                )}
-            </div>
-
             <input
                 ref={fileInputRef}
                 type="file"
@@ -934,7 +746,197 @@ export default function Editor() {
                 className="hidden"
             />
 
-            <div className="flex-1 overflow-y-auto relative min-h-0">
+            <div className="flex-1 overflow-y-auto relative min-h-0" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+                {/* Toolbar: sticky inside scroll container so it stays pinned at top on mobile */}
+                <div className="flex items-center gap-0.5 px-2 py-1.5 border-b-2 border-border bg-surface/90 backdrop-blur-sm z-20 overflow-x-auto sticky top-0"
+                >
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().undo().run()}
+                        title="Undo (Ctrl+Z)"
+                    >
+                        <Undo2 size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().redo().run()}
+                        title="Redo (Ctrl+Y)"
+                    >
+                        <Redo2 size={15} />
+                    </ToolbarButton>
+
+                    <div className="w-[1px] h-4 bg-border mx-1" />
+
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                        isActive={editor?.isActive("heading", { level: 1 }) ?? false}
+                        title="Heading 1"
+                    >
+                        <Heading1 size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                        isActive={editor?.isActive("heading", { level: 2 }) ?? false}
+                        title="Heading 2"
+                    >
+                        <Heading2 size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+                        isActive={editor?.isActive("heading", { level: 3 }) ?? false}
+                        title="Heading 3"
+                    >
+                        <Heading3 size={15} />
+                    </ToolbarButton>
+
+                    <div className="w-[1px] h-4 bg-border mx-1" />
+
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                        isActive={editor?.isActive("bold") ?? false}
+                        title="Bold (Ctrl+B)"
+                    >
+                        <Bold size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                        isActive={editor?.isActive("italic") ?? false}
+                        title="Italic (Ctrl+I)"
+                    >
+                        <Italic size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                        isActive={editor?.isActive("underline") ?? false}
+                        title="Underline (Ctrl+U)"
+                    >
+                        <UnderlineIcon size={15} />
+                    </ToolbarButton>
+
+                    <div className="w-[1px] h-4 bg-border mx-1" />
+
+                    <div className="relative">
+                        <button
+                            onClick={() => { setShowTextColor(!showTextColor); setShowHighlight(false); }}
+                            title="Text Color"
+                            className={cn(
+                                "flex items-center gap-0.5 px-1.5 py-1.5 rounded-md transition-all duration-150",
+                                "hover:bg-surface-hover active:scale-95",
+                                showTextColor && "bg-surface ring-1 ring-primary/20"
+                            )}
+                        >
+                            <Palette size={15} />
+                            <div
+                                className="w-3 h-1.5 rounded-sm mt-0.5"
+                                style={{ backgroundColor: currentTextColor || "#f0e4d0" }}
+                            />
+                            <ChevronDown size={10} className="opacity-50" />
+                        </button>
+                        {showTextColor && (
+                            <ColorPicker
+                                colors={TEXT_COLORS}
+                                currentColor={currentTextColor}
+                                onSelect={(color) => {
+                                    if (color) {
+                                        editor?.chain().focus().setColor(color).run();
+                                    } else {
+                                        editor?.chain().focus().unsetColor().run();
+                                    }
+                                }}
+                                onClose={() => setShowTextColor(false)}
+                                label="Text Color"
+                            />
+                        )}
+                    </div>
+
+                    <div className="relative">
+                        <button
+                            onClick={() => { setShowHighlight(!showHighlight); setShowTextColor(false); }}
+                            title="Highlight"
+                            className={cn(
+                                "flex items-center gap-0.5 px-1.5 py-1.5 rounded-md transition-all duration-150",
+                                "hover:bg-surface-hover active:scale-95",
+                                showHighlight && "bg-surface ring-1 ring-primary/20"
+                            )}
+                        >
+                            <Highlighter size={15} />
+                            <div
+                                className="w-3 h-1.5 rounded-sm mt-0.5"
+                                style={{ backgroundColor: currentHighlight || "transparent", border: currentHighlight ? "none" : "1px dashed #8a7d6b" }}
+                            />
+                            <ChevronDown size={10} className="opacity-50" />
+                        </button>
+                        {showHighlight && (
+                            <ColorPicker
+                                colors={HIGHLIGHT_COLORS}
+                                currentColor={currentHighlight}
+                                onSelect={(color) => {
+                                    if (color) {
+                                        editor?.chain().focus().toggleHighlight({ color }).run();
+                                    } else {
+                                        editor?.chain().focus().unsetHighlight().run();
+                                    }
+                                }}
+                                onClose={() => setShowHighlight(false)}
+                                label="Highlight"
+                            />
+                        )}
+                    </div>
+
+                    <div className="w-[1px] h-4 bg-border mx-1" />
+
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                        isActive={editor?.isActive("bulletList") ?? false}
+                        title="Bullet List"
+                    >
+                        <List size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                        isActive={editor?.isActive("orderedList") ?? false}
+                        title="Numbered List"
+                    >
+                        <ListOrdered size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                        isActive={editor?.isActive("blockquote") ?? false}
+                        title="Blockquote"
+                    >
+                        <Quote size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
+                        isActive={editor?.isActive("codeBlock") ?? false}
+                        title="Code Block"
+                    >
+                        <Code size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor?.chain().focus().setHorizontalRule().run()}
+                        title="Horizontal Rule"
+                    >
+                        <Minus size={15} />
+                    </ToolbarButton>
+
+                    <div className="flex-1" />
+
+                    <div className="flex items-center gap-0.5">
+                        <ToolbarButton onClick={addImage} title="Insert Image">
+                            <ImageIcon size={15} />
+                        </ToolbarButton>
+                        <ToolbarButton onClick={addYoutube} title="Insert YouTube Video">
+                            <YoutubeIcon size={15} />
+                        </ToolbarButton>
+                    </div>
+
+                    {isSaving && (
+                        <div className="ml-2 flex items-center gap-1.5 text-text-muted/60">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            <span className="text-[10px] font-medium">Saving</span>
+                        </div>
+                    )}
+                </div>
+
                 {editor && (
                     <BubbleMenu
                         editor={editor}
