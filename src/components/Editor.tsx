@@ -315,7 +315,7 @@ export default function Editor() {
             content: "",
             editorProps: {
                 attributes: {
-                    class: "jpad-editor focus:outline-none min-h-[500px] pt-6",
+                    class: "jpad-editor focus:outline-none min-h-[500px]",
                 },
                 handleDrop: (_view, event, _slice, moved) => {
                     if (moved || !event.dataTransfer?.files?.length) return false;
@@ -1015,7 +1015,7 @@ export default function Editor() {
                         </div>
                     </BubbleMenu>
                 )}
-                <div className="px-6 md:px-16 lg:px-32 pt-6 pb-20">
+                <div className="px-6 md:px-16 lg:px-32 pb-20">
                     <EditorContent editor={editor} />
                 </div>
             </div>
