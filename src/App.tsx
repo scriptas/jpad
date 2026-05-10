@@ -69,11 +69,9 @@ export default function App() {
       });
     }
 
-    // On mobile, Android WebView pans the viewport at a native level when
-    // a contenteditable is focused + keyboard opens. CSS position:fixed and
-    // overflow:hidden cannot prevent this. Instead, we COUNTERACT the pan:
-    // we read visualViewport.offsetTop (how far the browser panned) and
-    // apply a CSS transform to push the app back into view.
+    // On mobile, resize the app to fit above the soft keyboard.
+    // ProseMirror's scrollIntoView is overridden in Editor.tsx to prevent
+    // native viewport panning, so we only need height management here.
     let vpHandler: (() => void) | undefined;
     let scrollResetHandler: (() => void) | undefined;
     if (mobile) {
@@ -89,20 +87,10 @@ export default function App() {
       if (window.visualViewport) {
         vpHandler = () => {
           const vp = window.visualViewport!;
-          const height = vp.height;
-          const offsetTop = vp.offsetTop;
-
-          // Resize everything to fit the visible area above the keyboard
-          const heightPx = `${height}px`;
+          const heightPx = `${vp.height}px`;
           document.documentElement.style.height = heightPx;
           document.body.style.height = heightPx;
           if (rootEl) rootEl.style.height = heightPx;
-
-          // Counteract any browser panning by shifting the app back down
-          if (rootEl) {
-            rootEl.style.transform = offsetTop > 0 ? `translateY(${offsetTop}px)` : "";
-          }
-
           scrollResetHandler!();
         };
         window.visualViewport.addEventListener("resize", vpHandler);

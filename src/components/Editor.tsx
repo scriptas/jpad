@@ -281,6 +281,7 @@ export default function Editor() {
     const saveRef = useRef(saveActiveFile);
     saveRef.current = saveActiveFile;
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const [showTextColor, setShowTextColor] = useState(false);
     const [showHighlight, setShowHighlight] = useState(false);
@@ -407,6 +408,34 @@ export default function Editor() {
                     }
 
                     return false;
+                },
+                handleScrollToSelection: (view) => {
+                    // On mobile, prevent ProseMirror from using native scrollIntoView
+                    // which causes Android WebView to pan the entire viewport.
+                    // Instead, manually scroll within our scroll container.
+                    const p = platform();
+                    if (p !== "android" && p !== "ios") return false;
+
+                    const scrollEl = scrollContainerRef.current;
+                    if (!scrollEl) return false;
+
+                    requestAnimationFrame(() => {
+                        try {
+                            const { from } = view.state.selection;
+                            const coords = view.coordsAtPos(from);
+                            const containerRect = scrollEl.getBoundingClientRect();
+                            const margin = 50;
+
+                            if (coords.bottom > containerRect.bottom - margin) {
+                                scrollEl.scrollBy({ top: coords.bottom - containerRect.bottom + margin });
+                            } else if (coords.top < containerRect.top + margin) {
+                                scrollEl.scrollBy({ top: coords.top - containerRect.top - margin });
+                            }
+                        } catch (_e) {
+                            // Coords may not be available yet
+                        }
+                    });
+                    return true;
                 },
 
             },
@@ -936,7 +965,7 @@ export default function Editor() {
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto relative min-h-0" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto relative min-h-0" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
                 {editor && (
                     <BubbleMenu
                         editor={editor}
