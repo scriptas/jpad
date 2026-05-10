@@ -69,32 +69,18 @@ export default function App() {
       });
     }
 
-    // On mobile, aggressively prevent Android WebView from panning the
-    // document when the soft keyboard opens and a contenteditable is focused.
-    // We lock html/body/#root to position:fixed so the browser physically
-    // cannot scroll them, and add a scroll listener as a safety net.
+    // On mobile, Android WebView pans the viewport at a native level when
+    // a contenteditable is focused + keyboard opens. CSS position:fixed and
+    // overflow:hidden cannot prevent this. Instead, we COUNTERACT the pan:
+    // we read visualViewport.offsetTop (how far the browser panned) and
+    // apply a CSS transform to push the app back into view.
     let vpHandler: (() => void) | undefined;
     let scrollResetHandler: (() => void) | undefined;
     if (mobile) {
-      // Lock the document so Android WebView cannot pan it
-      const lockElements = [document.documentElement, document.body];
       const rootEl = document.getElementById("root");
-      if (rootEl) lockElements.push(rootEl);
 
-      for (const el of lockElements) {
-        el.style.position = "fixed";
-        el.style.top = "0";
-        el.style.left = "0";
-        el.style.right = "0";
-        el.style.width = "100%";
-        el.style.overflow = "hidden";
-      }
-
-      // Safety net: if the browser somehow scrolls the document, reset it
       scrollResetHandler = () => {
-        if (window.scrollY !== 0 || window.scrollX !== 0) {
-          window.scrollTo(0, 0);
-        }
+        window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       };
@@ -103,18 +89,24 @@ export default function App() {
       if (window.visualViewport) {
         vpHandler = () => {
           const vp = window.visualViewport!;
-          const height = `${vp.height}px`;
+          const height = vp.height;
+          const offsetTop = vp.offsetTop;
 
-          for (const el of lockElements) {
-            el.style.height = height;
+          // Resize everything to fit the visible area above the keyboard
+          const heightPx = `${height}px`;
+          document.documentElement.style.height = heightPx;
+          document.body.style.height = heightPx;
+          if (rootEl) rootEl.style.height = heightPx;
+
+          // Counteract any browser panning by shifting the app back down
+          if (rootEl) {
+            rootEl.style.transform = offsetTop > 0 ? `translateY(${offsetTop}px)` : "";
           }
 
-          // Reset any panning that slipped through
           scrollResetHandler!();
         };
         window.visualViewport.addEventListener("resize", vpHandler);
         window.visualViewport.addEventListener("scroll", vpHandler);
-        // Set initial value
         vpHandler();
       }
     }
