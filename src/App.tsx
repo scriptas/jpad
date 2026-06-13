@@ -134,6 +134,10 @@ export default function App() {
     // Also refresh when window regains focus
     const handleFocus = () => {
       refreshFiles();
+      const { config, syncNow } = useSyncStore.getState();
+      if (config.enabled) {
+        syncNow().catch(console.error);
+      }
     };
     window.addEventListener("focus", handleFocus);
 

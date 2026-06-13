@@ -30,6 +30,7 @@ interface SyncStore {
   stopAutoSync: () => void;
   getStatus: () => SyncStatus;
   disconnect: () => void;
+  updateAutoSyncInterval: (interval: number) => void;
 }
 
 const DEFAULT_STATUS: SyncStatus = {
@@ -62,7 +63,7 @@ export const useSyncStore = create<SyncStore>()(
           enabled: false,
         },
       },
-      autoSyncInterval: 300000, // 5 minutes
+      autoSyncInterval: 60000, // 1 minute (default)
 
       // Transient (not persisted)
       status: { ...DEFAULT_STATUS },
@@ -73,7 +74,6 @@ export const useSyncStore = create<SyncStore>()(
 
         // If not enabled, do nothing
         if (!config.enabled) {
-          set({ status: { ...DEFAULT_STATUS } });
           return;
         }
 
@@ -90,6 +90,11 @@ export const useSyncStore = create<SyncStore>()(
 
           if (config.enabled && get().autoSyncInterval > 0) {
             get().startAutoSync();
+          }
+
+          // Trigger initial sync in background
+          if (config.enabled) {
+            get().syncNow().catch(console.error);
           }
         } catch (error) {
           console.error('Failed to initialize sync:', error);
@@ -133,6 +138,10 @@ export const useSyncStore = create<SyncStore>()(
           } else {
             get().stopAutoSync();
           }
+
+          if (updated.enabled) {
+            get().syncNow().catch(console.error);
+          }
         } catch (error) {
           console.error('Failed to update sync config:', error);
           set({
@@ -148,6 +157,11 @@ export const useSyncStore = create<SyncStore>()(
 
         if (!config.enabled) {
           throw new Error('Sync is not enabled');
+        }
+
+        if (get().status.syncing) {
+          console.log('Sync already in progress, skipping concurrent sync execution');
+          return;
         }
 
         try {
@@ -204,6 +218,17 @@ export const useSyncStore = create<SyncStore>()(
       },
 
       getStatus: () => get().status,
+
+      updateAutoSyncInterval: (interval: number) => {
+        set({ autoSyncInterval: interval });
+        const { config } = get();
+        if (config.enabled && interval > 0) {
+          get().stopAutoSync();
+          get().startAutoSync();
+        } else {
+          get().stopAutoSync();
+        }
+      },
     }),
     {
       name: 'jpad-sync-config',
