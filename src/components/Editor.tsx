@@ -331,6 +331,7 @@ export default function Editor() {
             extensions: [
                 StarterKit.configure({
                     heading: { levels: [1, 2, 3] },
+                    // @ts-ignore
                     history: {
                         newGroupDelay: 300,
                     },
@@ -615,7 +616,7 @@ export default function Editor() {
             isLoadingRef.current = true;
             loadFileContent(activeFileId).then((content) => {
                 editor.chain()
-                    .setContent(content || "", false)
+                    .setContent(content || "", { emitUpdate: false })
                     .setMeta("addToHistory", false)
                     .focus()
                     .run();
