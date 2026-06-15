@@ -235,20 +235,22 @@ export default function App() {
   // ── Global Navigation Prevention ──
   useEffect(() => {
     const handleNavigation = (e: MouseEvent | KeyboardEvent) => {
+      const isEditing = document.activeElement?.closest(".jpad-editor") ||
+        ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
+
+      // Alt+ArrowLeft/Right is word-by-word cursor navigation when editing.
+      // Do not treat as navigation (history back/forward) when editing is active.
       const isBack =
         (e instanceof MouseEvent && e.button === 3) ||
         (e instanceof KeyboardEvent &&
-          ((e.altKey && e.key === "ArrowLeft") || e.key === "BrowserBack"));
+          ((e.altKey && e.key === "ArrowLeft" && !isEditing) || e.key === "BrowserBack"));
 
       const isForward =
         (e instanceof MouseEvent && e.button === 4) ||
         (e instanceof KeyboardEvent &&
-          ((e.altKey && e.key === "ArrowRight") || e.key === "BrowserForward"));
+          ((e.altKey && e.key === "ArrowRight" && !isEditing) || e.key === "BrowserForward"));
 
       if (isBack || isForward) {
-        const isEditing = document.activeElement?.closest(".jpad-editor") ||
-          ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
-
         e.preventDefault();
 
         if (isBack && isEditing) {
