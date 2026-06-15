@@ -441,6 +441,14 @@ export default function Settings() {
             }
         };
     }, []);
+
+    // Focus settings panel on mount to capture keyboard events
+    useEffect(() => {
+        if (panelRef.current) {
+            panelRef.current.focus();
+        }
+    }, []);
+
     // Preview changes live
     useEffect(() => {
         if (editColors) {
@@ -574,8 +582,9 @@ export default function Settings() {
             {/* Settings Panel */}
             <div
                 ref={panelRef}
+                tabIndex={-1}
                 className={cn(
-                    "relative z-10 bg-sidebar border-2 border-border shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in duration-300",
+                    "relative z-10 bg-sidebar border-2 border-border shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-in fade-in duration-300 outline-none",
                     isMobile
                         ? "fixed inset-0 w-full h-full border-none rounded-none"
                         : "w-[780px] max-h-[85vh] rounded-2xl zoom-in-95"
