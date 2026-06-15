@@ -413,7 +413,7 @@ export default function Settings() {
     const backdropRef = useRef<HTMLDivElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
-    // Enable dragging on backdrop and header (Desktop only)
+    // Enable dragging on header (Desktop only)
     useEffect(() => {
         const p = platform();
         if (p === "android" || p === "ios") return;
@@ -429,27 +429,18 @@ export default function Settings() {
             desktopWindow?.startDragging();
         };
 
-        const backdrop = backdropRef.current;
         const header = headerRef.current;
 
-        if (backdrop) {
-            backdrop.addEventListener("mousedown", handleMouseDown);
-        }
         if (header) {
             header.addEventListener("mousedown", handleMouseDown);
         }
 
         return () => {
-            if (backdrop) {
-                backdrop.removeEventListener("mousedown", handleMouseDown);
-            }
             if (header) {
                 header.removeEventListener("mousedown", handleMouseDown);
             }
         };
     }, []);
-
-
     // Preview changes live
     useEffect(() => {
         if (editColors) {
@@ -467,6 +458,21 @@ export default function Settings() {
         setIsCreatingNew(false);
         setSettingsOpen(false);
     };
+
+    // Exit settings on Escape key press
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                const target = e.target as HTMLElement;
+                if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+                    return;
+                }
+                handleClose();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [handleClose]);
 
     const handleSelectTheme = (theme: Theme) => {
         setActiveTheme(theme.id);
@@ -561,7 +567,7 @@ export default function Settings() {
             {/* Backdrop */}
             <div
                 ref={backdropRef}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-move"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                 onClick={handleClose}
             />
 
