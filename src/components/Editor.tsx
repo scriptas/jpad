@@ -1060,7 +1060,7 @@ export default function Editor() {
                         </div>
                     </BubbleMenu>
                 )}
-                <div className="pt-1 px-6 md:px-16 lg:px-32 pb-20">
+                <div className="pt-6 px-6 md:px-8 pb-20">
                     <EditorContent editor={editor} />
                 </div>
             </div>
