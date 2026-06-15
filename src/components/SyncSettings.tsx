@@ -14,7 +14,7 @@ interface SetupStep {
 }
 
 export default function SyncSettings() {
-  const { config, status, updateConfig, syncNow, disconnect } = useSyncStore();
+  const { config, status, updateConfig, syncNow, disconnect, autoSyncInterval, updateAutoSyncInterval } = useSyncStore();
   const [formData, setFormData] = useState(config);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -312,6 +312,41 @@ export default function SyncSettings() {
               />
             </div>
           </>
+        )}
+
+        {/* Auto-Sync Frequency */}
+        {config.enabled && (
+          <div className="space-y-2 pt-2 border-t border-border/25">
+            <label className="block text-[11px] font-medium text-text/60 mb-1 flex items-center gap-1.5">
+              <RefreshCw size={12} className="text-primary" />
+              <span>Auto-Sync Frequency</span>
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { label: '30s', value: 30000 },
+                { label: '1m', value: 60000 },
+                { label: '5m', value: 300000 },
+                { label: '15m', value: 900000 },
+                { label: '30m', value: 1800000 },
+                { label: 'Manual Only', value: 0 },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => updateAutoSyncInterval(option.value)}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-medium border transition-all ${
+                    autoSyncInterval === option.value
+                      ? 'bg-primary/10 border-primary/30 text-primary shadow-sm shadow-primary/5'
+                      : 'bg-surface/30 border-border/50 text-text/60 hover:text-text hover:bg-surface-hover'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-text/40 leading-relaxed">
+              Select how often JPad automatically syncs changes in the background.
+            </p>
+          </div>
         )}
 
         {/* Action Buttons */}

@@ -77,6 +77,14 @@ export function findFileNode(nodes: FileNode[], id: string): FileNode | null {
     return null;
 }
 
+const triggerSync = () => {
+    import("./useSyncStore").then(({ useSyncStore }) => {
+        if (useSyncStore.getState().config.enabled) {
+            useSyncStore.getState().syncNow().catch(console.error);
+        }
+    }).catch(console.error);
+};
+
 export const useStore = create<AppState>((set, get) => ({
     files: [],
     activeFileId: null,
@@ -174,6 +182,7 @@ export const useStore = create<AppState>((set, get) => ({
             await invoke("create_file", { path });
             await get().refreshFiles();
             set({ activeFileId: path, lastSelectedId: path, selectedFiles: new Set([path]) }); // Instantly activate and select the new file
+            triggerSync();
         } catch (error) {
             console.error("Failed to create file:", error);
         }
@@ -184,6 +193,7 @@ export const useStore = create<AppState>((set, get) => ({
             await invoke("create_folder", { path });
             await get().refreshFiles();
             set({ lastSelectedId: path, selectedFiles: new Set([path]) });
+            triggerSync();
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("Failed to create folder:", message);
@@ -222,6 +232,7 @@ export const useStore = create<AppState>((set, get) => ({
             if (activeFileId === path) {
                 setActiveFileId(null);
             }
+            triggerSync();
         } catch (error) {
             console.error("Failed to delete path:", error);
             throw error;
@@ -260,6 +271,7 @@ export const useStore = create<AppState>((set, get) => ({
             if (activeFileId && paths.includes(activeFileId)) {
                 setActiveFileId(null);
             }
+            triggerSync();
         } catch (error) {
             console.error("Failed to delete paths:", error);
             throw error;
@@ -278,6 +290,7 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ activeFileId: updatedPath });
             }
             await get().refreshFiles();
+            triggerSync();
         } catch (error) {
             console.error("Failed to rename:", error);
         }
@@ -291,6 +304,7 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ activeFileId: newPath });
             }
             await get().refreshFiles();
+            triggerSync();
         } catch (error) {
             console.error("Failed to move:", error);
         }

@@ -134,6 +134,10 @@ export default function App() {
     // Also refresh when window regains focus
     const handleFocus = () => {
       refreshFiles();
+      const { config, syncNow } = useSyncStore.getState();
+      if (config.enabled) {
+        syncNow().catch(console.error);
+      }
     };
     window.addEventListener("focus", handleFocus);
 
@@ -301,6 +305,16 @@ export default function App() {
         const { toggleSidebar } = useStore.getState();
         toggleSidebar();
       }
+
+      // F11 to toggle fullscreen
+      if (e.key === "F11") {
+        e.preventDefault();
+        if (appWindowRef.current) {
+          appWindowRef.current.isFullscreen().then((fullscreen: boolean) => {
+            appWindowRef.current.setFullscreen(!fullscreen);
+          }).catch(() => { });
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -318,125 +332,127 @@ export default function App() {
       isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-[12px]" : "rounded-[10px]")
     )}>
       {/* Custom Title Bar */}
-    <div
-        data-tauri-drag-region
-        className={cn(
-          "flex items-center bg-sidebar/80 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden z-50",
-          !isMacOS && "backdrop-blur-md",
-          isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-11",
-          isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
-        )}
-      >
-        {isMobile ? (
-          // Mobile layout: simple branding
-          <div className="flex items-center justify-between w-full px-5">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleSidebar}
-                className="p-2 -ml-2 hover:bg-surface-hover rounded-xl transition-all"
-                title="Sidebar"
-              >
-                <Menu size={24} className="text-primary" />
-              </button>
-              <NeonIcon size={24} />
-              <span className="text-[14px] font-bold tracking-wider text-text uppercase">
-                JPad
-              </span>
-            </div>
-            {/* Center: File Name (smaller on mobile) */}
-            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none px-4">
-              {activeFile && (
-                <span className="text-[12px] text-text/30 font-medium truncate tracking-wider uppercase">
-                  {activeFile?.name}
+      {!isFullscreen && (
+        <div
+          data-tauri-drag-region
+          className={cn(
+            "flex items-center bg-sidebar/80 border-b-2 border-primary/10 flex-shrink-0 select-none cursor-default overflow-hidden z-50",
+            !isMacOS && "backdrop-blur-md",
+            isMobile ? "min-h-[calc(env(safe-area-inset-top,44px)+52px)] pt-[max(env(safe-area-inset-top,44px),44px)] pb-3" : "h-11",
+            isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-t-[12px]" : "rounded-t-[10px]")
+          )}
+        >
+          {isMobile ? (
+            // Mobile layout: simple branding
+            <div className="flex items-center justify-between w-full px-5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleSidebar}
+                  className="p-2 -ml-2 hover:bg-surface-hover rounded-xl transition-all"
+                  title="Sidebar"
+                >
+                  <Menu size={24} className="text-primary" />
+                </button>
+                <NeonIcon size={24} />
+                <span className="text-[14px] font-bold tracking-wider text-text uppercase">
+                  JPad
                 </span>
-              )}
-            </div>
-            <div className="w-10" />
-          </div>
-        ) : isMacOS ? (
-          // macOS layout with native traffic lights (decorations: true)
-          <>
-            {/* Native system traffic lights will appear in the top-left area. 
-                We provide a spacer to keep the branding away from them. */}
-            <div className="w-[72px] h-full flex-shrink-0" />
-
-            <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
-              <button
-                onClick={toggleSidebar}
-                className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
-                title="Toggle Sidebar (Ctrl+B)"
-              >
-                <Menu size={16} className="text-primary" />
-              </button>
-              <NeonIcon size={32} />
-              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
-                JPad
-              </span>
-            </div>
-
-            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
-              {activeFile && (
-                <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
-                  {activeFile?.name}
-                </span>
-              )}
-            </div>
-
-            {/* Spacer for symmetrical title look if needed */}
-            <div className="w-[140px] flex-shrink-0" />
-          </>
-        ) : (
-          // Windows/Linux layout...
-          <>
-            <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
-              <button
-                onClick={toggleSidebar}
-                className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
-                title="Toggle Sidebar"
-              >
-                <Menu size={16} className="text-primary" />
-              </button>
-              <NeonIcon size={32} />
-              <span className="text-[11px] font-bold tracking-wide text-text uppercase">
-                JPad
-              </span>
-            </div>
-
-            <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
-              {activeFile && (
-                <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
-                  {activeFile?.name}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center h-full flex-shrink-0">
-              <button
-                onClick={() => appWindowRef.current?.minimize()}
-                className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
-              >
-                <Minus size={14} className="opacity-90" />
-              </button>
-              <button
-                onClick={() => appWindowRef.current?.toggleMaximize()}
-                className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
-              >
-                {isMaximized ? (
-                  <Square size={10} className="opacity-90" />
-                ) : (
-                  <Maximize2 size={12} className="opacity-90" />
+              </div>
+              {/* Center: File Name (smaller on mobile) */}
+              <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none px-4">
+                {activeFile && (
+                  <span className="text-[12px] text-text/30 font-medium truncate tracking-wider uppercase">
+                    {activeFile?.name}
+                  </span>
                 )}
-              </button>
-              <button
-                onClick={() => appWindowRef.current?.close()}
-                className="h-full px-3.5 hover:bg-red-500/80 hover:text-white transition-colors flex items-center"
-              >
-                <X size={14} className="opacity-90" />
-              </button>
+              </div>
+              <div className="w-10" />
             </div>
-          </>
-        )}
-      </div>
+          ) : isMacOS ? (
+            // macOS layout with native traffic lights (decorations: true)
+            <>
+              {/* Native system traffic lights will appear in the top-left area. 
+                  We provide a spacer to keep the branding away from them. */}
+              <div className="w-[72px] h-full flex-shrink-0" />
+
+              <div className="flex items-center gap-2 pr-3 h-full flex-shrink-0">
+                <button
+                  onClick={toggleSidebar}
+                  className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
+                  title="Toggle Sidebar (Ctrl+B)"
+                >
+                  <Menu size={16} className="text-primary" />
+                </button>
+                <NeonIcon size={32} />
+                <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+                  JPad
+                </span>
+              </div>
+
+              <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
+                {activeFile && (
+                  <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
+                    {activeFile?.name}
+                  </span>
+                )}
+              </div>
+
+              {/* Spacer for symmetrical title look if needed */}
+              <div className="w-[140px] flex-shrink-0" />
+            </>
+          ) : (
+            // Windows/Linux layout...
+            <>
+              <div className="flex items-center gap-2 px-3 h-full flex-shrink-0">
+                <button
+                  onClick={toggleSidebar}
+                  className="p-1.5 hover:bg-surface-hover rounded-md transition-all mr-1"
+                  title="Toggle Sidebar"
+                >
+                  <Menu size={16} className="text-primary" />
+                </button>
+                <NeonIcon size={32} />
+                <span className="text-[11px] font-bold tracking-wide text-text uppercase">
+                  JPad
+                </span>
+              </div>
+
+              <div className="flex-1 h-full flex items-center justify-center overflow-hidden pointer-events-none">
+                {activeFile && (
+                  <span className="text-[11px] text-text/30 font-medium truncate max-w-[300px] tracking-wider uppercase">
+                    {activeFile?.name}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center h-full flex-shrink-0">
+                <button
+                  onClick={() => appWindowRef.current?.minimize()}
+                  className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
+                >
+                  <Minus size={14} className="opacity-90" />
+                </button>
+                <button
+                  onClick={() => appWindowRef.current?.toggleMaximize()}
+                  className="h-full px-3.5 hover:bg-surface-hover/80 transition-colors flex items-center"
+                >
+                  {isMaximized ? (
+                    <Square size={10} className="opacity-90" />
+                  ) : (
+                    <Maximize2 size={12} className="opacity-90" />
+                  )}
+                </button>
+                <button
+                  onClick={() => appWindowRef.current?.close()}
+                  className="h-full px-3.5 hover:bg-red-500/80 hover:text-white transition-colors flex items-center"
+                >
+                  <X size={14} className="opacity-90" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Floating Sidebar Toggle - REMOVED for mobile header menu */}

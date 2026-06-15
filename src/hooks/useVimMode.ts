@@ -47,6 +47,7 @@ export function useVimMode(editor: Editor | null, enabled: boolean) {
         editor.commands.focus();
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (!editor.isFocused) return;
             const state = stateRef.current;
 
             // COMMAND mode (: commands)

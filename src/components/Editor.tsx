@@ -9,6 +9,7 @@ import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
+import { closeHistory } from "prosemirror-history";
 import { Extension } from "@tiptap/core";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
@@ -198,7 +199,7 @@ async function deblobifyContent(html: string): Promise<string> {
     const div = document.createElement('div');
     div.innerHTML = html;
     const images = div.querySelectorAll('img[src^="blob:"]');
-    
+
     if (images.length === 0) return html;
 
     for (const imgNode of Array.from(images)) {
@@ -254,11 +255,10 @@ const CustomImage = Image.extend({
 });
 
 /**
- * Custom Tab handler to insert 4 spaces like an IDE
- * while preserving list indentation behavior.
+ * Custom Key handler to override Tab and Alt-Backspace behavior.
  */
-const TabHandler = Extension.create({
-    name: 'tabHandler',
+const CustomKeyHandler = Extension.create({
+    name: 'customKeyHandler',
     addKeyboardShortcuts() {
         return {
             Tab: () => {
@@ -267,6 +267,44 @@ const TabHandler = Extension.create({
                 }
                 this.editor.commands.insertContent('    ');
                 return true;
+            },
+            'Alt-Backspace': () => {
+                const { state } = this.editor;
+                const { from, empty } = state.selection;
+                if (!empty) {
+                    this.editor.commands.deleteSelection();
+                    return true;
+                }
+                // Fetch text before the cursor (up to 500 characters)
+                const startPos = Math.max(0, from - 500);
+                const text = state.doc.textBetween(startPos, from, "\n");
+                if (!text) return false;
+                const reversed = text.split("").reverse().join("");
+                const match = reversed.match(/^(\s*\w+|\s+|[^\w\s]+)/);
+                if (match) {
+                    const deleteLen = match[0].length;
+                    this.editor.commands.deleteRange({ from: from - deleteLen, to: from });
+                    return true;
+                }
+                return false;
+            },
+            Space: () => {
+                setTimeout(() => {
+                    this.editor.commands.command(({ tr }) => {
+                        closeHistory(tr);
+                        return true;
+                    });
+                }, 0);
+                return false;
+            },
+            Enter: () => {
+                setTimeout(() => {
+                    this.editor.commands.command(({ tr }) => {
+                        closeHistory(tr);
+                        return true;
+                    });
+                }, 0);
+                return false;
             },
         };
     },
@@ -293,6 +331,10 @@ export default function Editor() {
             extensions: [
                 StarterKit.configure({
                     heading: { levels: [1, 2, 3] },
+                    // @ts-ignore
+                    history: {
+                        newGroupDelay: 300,
+                    },
                 }),
                 Underline,
                 TextStyle,
@@ -310,7 +352,7 @@ export default function Editor() {
                     placeholder: "Start writing your thoughts...",
                     emptyEditorClass: "is-editor-empty",
                 }),
-                TabHandler,
+                CustomKeyHandler,
             ],
             content: "",
             editorProps: {
@@ -443,7 +485,7 @@ export default function Editor() {
                 if (isLoadingRef.current) return;
                 const content = editor.getHTML();
                 setEditorContent(content); // Update store immediately for stats
-                
+
                 if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                 saveTimeoutRef.current = setTimeout(async () => {
                     // Safety check: ensure no browser blobs leak into the saved file
@@ -573,8 +615,11 @@ export default function Editor() {
         if (editor && activeFileId) {
             isLoadingRef.current = true;
             loadFileContent(activeFileId).then((content) => {
-                editor.commands.setContent(content || "");
-                editor.commands.focus(); // Auto-focus for "instastart"
+                editor.chain()
+                    .setContent(content || "", { emitUpdate: false })
+                    .setMeta("addToHistory", false)
+                    .focus()
+                    .run();
 
                 // Position cursor at end of document
                 setTimeout(() => {
@@ -1015,7 +1060,7 @@ export default function Editor() {
                         </div>
                     </BubbleMenu>
                 )}
-                <div className="px-6 md:px-16 lg:px-32 pb-20">
+                <div className="pt-6 px-6 md:px-8 pb-20">
                     <EditorContent editor={editor} />
                 </div>
             </div>
