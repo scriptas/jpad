@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { VimMode } from "../hooks/useVimMode";
+import { useSettingsStore } from "./useSettingsStore";
 
 export interface VimState {
     mode: VimMode;
@@ -227,6 +228,7 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
 
+            useSettingsStore.getState().removePathColor(path);
             await invoke("delete_path", { path });
             await refreshFiles();
             if (activeFileId === path) {
@@ -266,6 +268,7 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
 
+            paths.forEach((p) => useSettingsStore.getState().removePathColor(p));
             await invoke("delete_paths", { paths });
             await refreshFiles();
             if (activeFileId && paths.includes(activeFileId)) {
@@ -281,6 +284,7 @@ export const useStore = create<AppState>((set, get) => ({
     renamePath: async (oldPath, newPath) => {
         try {
             await invoke("rename_path", { oldPath, newPath });
+            useSettingsStore.getState().renamePathColors(oldPath, newPath);
             // If the renamed path was the active file or a parent folder of the active file
             const { activeFileId } = get();
             if (activeFileId === oldPath) {
@@ -299,6 +303,7 @@ export const useStore = create<AppState>((set, get) => ({
     movePath: async (oldPath, newPath) => {
         try {
             await invoke("rename_path", { oldPath, newPath });
+            useSettingsStore.getState().renamePathColors(oldPath, newPath);
             const { activeFileId } = get();
             if (activeFileId === oldPath) {
                 set({ activeFileId: newPath });

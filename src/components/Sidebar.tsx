@@ -29,6 +29,17 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+const PATH_COLORS = [
+    { name: "Default", value: "" },
+    { name: "Cream", value: "#f0e4d0" },
+    { name: "Red", value: "#e06060" },
+    { name: "Amber", value: "#d4a06a" },
+    { name: "Green", value: "#a0c878" },
+    { name: "Blue", value: "#5a8ae0" },
+    { name: "Purple", value: "#b068c8" },
+    { name: "Muted", value: "#8a7d6b" },
+];
+
 export default function Sidebar() {
     const {
         files,
@@ -52,6 +63,8 @@ export default function Sidebar() {
         setLastSelectedId,
         clearSelection,
     } = useStore();
+
+    const { pathColors, setPathColor } = useSettingsStore();
 
     const [appVersion, setAppVersion] = useState<string>("");
 
@@ -639,6 +652,7 @@ export default function Sidebar() {
             const isSelected = selectedFiles.has(node.id);
             const isDragOver = dragOverId === node.id || touchTargetId === node.id;
             const isDragging = draggedId === node.id || touchDraggedId === node.id;
+            const customColor = pathColors[node.id];
 
             return (
                 <div key={node.id} className="animate-in fade-in duration-150">
@@ -662,7 +676,11 @@ export default function Sidebar() {
                             isDragging && "opacity-50",
                             isMobile ? "min-h-[52px]" : "cursor-grab active:cursor-grabbing"
                         )}
-                        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+                        style={{
+                            paddingLeft: `${depth * 16 + 8}px`,
+                            color: customColor || undefined,
+                            ...(customColor ? { "--color-primary": customColor } : {})
+                        } as React.CSSProperties}
                         onClick={(e) => handleFileClick(node, e)}
                         onContextMenu={(e) => handleContextMenu(e, node)}
                     >
@@ -745,6 +763,7 @@ export default function Sidebar() {
         return searchResults.map((result) => {
             const isActive = activeFileId === result.path;
             const node: FileNode = { id: result.path, name: result.name, type: "file" };
+            const customColor = pathColors[result.path];
 
             return (
                 <div
@@ -755,6 +774,10 @@ export default function Sidebar() {
                         isActive && "bg-surface text-primary ring-1 ring-primary/20",
                         isMobile && "mb-2 min-h-[60px] justify-center"
                     )}
+                    style={{
+                        color: customColor || undefined,
+                        ...(customColor ? { "--color-primary": customColor } : {})
+                    } as React.CSSProperties}
                     onClick={() => {
                         setActiveFileId(result.path);
                         setSelectedFiles(new Set([result.path]));
@@ -1023,6 +1046,41 @@ export default function Sidebar() {
                             Pop in separate window
                         </button>
                     )}
+                    <div className="h-[1px] bg-border my-1.5 mx-2" />
+                    <div className="px-3 py-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                        Color
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 flex-wrap">
+                        {PATH_COLORS.map((c) => {
+                            const isCurrent = (pathColors[contextMenu.node.id] || "") === c.value;
+                            return (
+                                <button
+                                    key={c.name}
+                                    title={c.name}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPathColor(contextMenu.node.id, c.value || null);
+                                        setContextMenu(null);
+                                    }}
+                                    className={cn(
+                                        "w-5 h-5 rounded-full border border-border cursor-pointer transition-transform hover:scale-125 active:scale-95 flex items-center justify-center",
+                                        isCurrent && "ring-1 ring-primary"
+                                    )}
+                                    style={{
+                                        backgroundColor: c.value || "transparent",
+                                        ...(c.value === "" ? {
+                                            background: "linear-gradient(135deg, transparent 40%, #e06060 40%, #e06060 60%, transparent 60%)",
+                                            border: "1px dashed var(--color-border)",
+                                        } : {}),
+                                    }}
+                                >
+                                    {isCurrent && (
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.value === '#f0e4d0' ? '#000' : 'var(--color-text)' }} />
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="h-[1px] bg-border my-1.5 mx-2" />
                     <button
                         onClick={(e) => {
