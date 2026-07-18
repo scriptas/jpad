@@ -1,7 +1,7 @@
 import { fetch } from '@tauri-apps/plugin-http';
 
 const GITHUB_API_URL = 'https://api.github.com/repos/scriptas/jpad/releases/latest';
-const CURRENT_VERSION = '2.3.5'; // Must match package.json / tauri.conf.json
+const CURRENT_VERSION = '2.3.6'; // Must match package.json / tauri.conf.json
 
 export interface ReleaseInfo {
     version: string;       // e.g. "2.2.0"

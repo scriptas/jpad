@@ -589,11 +589,12 @@ fn download_and_install_update(app: tauri::AppHandle, url: String, filename: Str
                 }
             }
 
-            // Fallback: just open the AppImage
-            Command::new("xdg-open")
-                .arg(&dest_str)
+            // Fallback: execute the AppImage directly
+            Command::new(&dest_str)
                 .spawn()
-                .map_err(|e| format!("Failed to open AppImage: {}", e))?;
+                .map_err(|e| format!("Failed to execute AppImage: {}", e))?;
+            app.exit(0);
+            return Ok("Relaunching...".to_string());
         } else if lowercase.ends_with(".deb") {
             // Try pkexec for graphical sudo, fallback to xdg-open
             let result = Command::new("pkexec")
