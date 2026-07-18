@@ -1,7 +1,9 @@
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useSyncStore } from "../store/useSyncStore";
-import { Cloud, CloudOff, RefreshCw, CloudAlert, Check } from "lucide-react";
+import { useUpdateStore } from "../store/useUpdateStore";
+import { useThemeStore } from "../store/useThemeStore";
+import { Cloud, CloudOff, RefreshCw, CloudAlert, Check, ArrowUpCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -118,6 +120,30 @@ function CloudSyncIndicator() {
     );
 }
 
+function UpdateIndicator() {
+    const { hasUpdate, latestRelease, dismissed } = useUpdateStore();
+    const { setSettingsOpen } = useThemeStore();
+
+    if (!hasUpdate || dismissed || !latestRelease) return null;
+
+    const handleClick = () => {
+        setSettingsOpen(true);
+        // Dispatch a custom event so Settings knows to go to the update section
+        window.dispatchEvent(new CustomEvent('jpad-open-settings-section', { detail: 'update' }));
+    };
+
+    return (
+        <button
+            onClick={handleClick}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/15 border border-primary/25 text-primary hover:bg-primary/25 hover:border-primary/40 transition-all cursor-pointer group animate-in fade-in slide-in-from-left-2 duration-500"
+            title={`Update available: v${latestRelease.version}`}
+        >
+            <ArrowUpCircle size={10} className="group-hover:animate-bounce" />
+            <span className="text-[9px] font-semibold tracking-wide uppercase">Update</span>
+        </button>
+    );
+}
+
 export default function StatusBar() {
     const { activeFileId, files, editorContent, selectedContent, vimState } = useStore();
     const { vimModeEnabled } = useSettingsStore();
@@ -138,6 +164,9 @@ export default function StatusBar() {
         )}>
             {/* Cloud Sync Status */}
             <CloudSyncIndicator />
+
+            {/* Update Available Indicator */}
+            <UpdateIndicator />
 
             {/* Spacer */}
             <div className="flex-1" />

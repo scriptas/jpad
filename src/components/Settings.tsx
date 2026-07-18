@@ -12,8 +12,14 @@ import {
     ChevronRight,
     FileText,
     Cloud,
+    Download,
+    ArrowUpCircle,
+    ExternalLink,
+    RefreshCw,
+    Loader2,
 } from "lucide-react";
 import SyncSettings from "./SyncSettings";
+import { useUpdateStore } from "../store/useUpdateStore";
 import {
     useThemeStore,
     PRESET_THEMES,
@@ -385,7 +391,202 @@ function NeonBorderSetting() {
     );
 }
 
-type SettingsSection = "appearance" | "filename" | "vim" | "cloud";
+/** Update section for the settings panel */
+function UpdateSection() {
+    const {
+        hasUpdate,
+        latestRelease,
+        currentVersion,
+        checking,
+        downloading,
+        downloadProgress,
+        error,
+        lastChecked,
+        checkForUpdates,
+        downloadAndInstall,
+        getDownloadAsset,
+    } = useUpdateStore();
+
+    const asset = getDownloadAsset();
+
+    const formatSize = (bytes: number) => {
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const formatDate = (iso: string) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
+    return (
+        <div className="p-6">
+            <div className="mb-6">
+                <h3 className="text-sm font-semibold text-text mb-2">Software Updates</h3>
+                <p className="text-xs text-text-muted/60">
+                    Keep JPad up to date with the latest features and improvements
+                </p>
+            </div>
+
+            {/* Current Version */}
+            <div className="rounded-xl bg-surface/30 border border-border/30 p-5 mb-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-[11px] text-text-muted/50 uppercase tracking-wider font-bold mb-1">
+                            Current Version
+                        </div>
+                        <div className="text-lg font-bold text-text">
+                            v{currentVersion}
+                        </div>
+                    </div>
+                    <button
+                        onClick={checkForUpdates}
+                        disabled={checking}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all",
+                            checking
+                                ? "bg-surface/60 text-text-muted cursor-wait"
+                                : "bg-surface hover:bg-surface-hover text-text border border-border/40 hover:border-border"
+                        )}
+                    >
+                        {checking ? (
+                            <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                            <RefreshCw size={14} />
+                        )}
+                        {checking ? "Checking..." : "Check for Updates"}
+                    </button>
+                </div>
+                {lastChecked && (
+                    <div className="text-[10px] text-text-muted/40 mt-2">
+                        Last checked: {new Date(lastChecked).toLocaleString()}
+                    </div>
+                )}
+            </div>
+
+            {/* Update Available */}
+            {hasUpdate && latestRelease && (
+                <div className="rounded-xl bg-primary/5 border-2 border-primary/20 p-5 mb-4 animate-in fade-in duration-300">
+                    <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+                            <ArrowUpCircle size={20} className="text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-sm font-bold text-text">
+                                    Update Available
+                                </h4>
+                                <span className="text-[10px] font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-full">
+                                    v{latestRelease.version}
+                                </span>
+                            </div>
+                            <p className="text-xs text-text-muted/60 mb-1">
+                                Published {formatDate(latestRelease.publishedAt)}
+                            </p>
+                            {asset && (
+                                <p className="text-[10px] text-text-muted/40">
+                                    {asset.name} • {formatSize(asset.size)}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Download Progress */}
+                    {downloading && (
+                        <div className="mt-4">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] text-text-muted font-medium">Downloading update...</span>
+                                <span className="text-[10px] text-primary font-mono">{downloadProgress}%</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-surface/60 overflow-hidden">
+                                <div
+                                    className="h-full rounded-full bg-primary transition-all duration-300"
+                                    style={{ width: `${Math.max(downloadProgress, 5)}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3 mt-4">
+                        <button
+                            onClick={downloadAndInstall}
+                            disabled={downloading || !asset}
+                            className={cn(
+                                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all",
+                                downloading
+                                    ? "bg-primary/30 text-primary/60 cursor-wait"
+                                    : "bg-primary text-background hover:opacity-90 shadow-sm shadow-primary/20 hover:shadow-md hover:shadow-primary/30"
+                            )}
+                        >
+                            {downloading ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <Download size={14} />
+                            )}
+                            {downloading ? "Installing..." : `Update to v${latestRelease.version}`}
+                        </button>
+
+                        {latestRelease.htmlUrl && (
+                            <a
+                                href="#"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    import('@tauri-apps/plugin-opener').then(m => m.openUrl(latestRelease.htmlUrl));
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-all border border-transparent hover:border-border/30"
+                            >
+                                <ExternalLink size={12} />
+                                Release Notes
+                            </a>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* No Update Available */}
+            {!hasUpdate && !checking && lastChecked && (
+                <div className="rounded-xl bg-surface/30 border border-border/30 p-5 mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-green-500/15 flex items-center justify-center">
+                            <Check size={16} className="text-green-400" />
+                        </div>
+                        <div>
+                            <div className="text-xs font-medium text-text">You're up to date!</div>
+                            <div className="text-[10px] text-text-muted/50">
+                                JPad v{currentVersion} is the latest version
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error */}
+            {error && (
+                <div className="rounded-xl bg-red-500/5 border border-red-500/20 p-4 mb-4 animate-in fade-in duration-200">
+                    <div className="flex items-start gap-2.5">
+                        <X size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <div className="text-xs font-medium text-red-400 mb-0.5">Update Error</div>
+                            <div className="text-[10px] text-text-muted/60">{error}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Info */}
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10 mt-2">
+                <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-[10px] text-text-muted/60 leading-relaxed">
+                    <span className="text-text-muted/80 font-medium">Note:</span> JPad checks for updates automatically every 30 minutes. Updates are downloaded from GitHub releases and installed locally.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+type SettingsSection = "appearance" | "filename" | "vim" | "cloud" | "update";
 
 export default function Settings() {
     const {
@@ -405,6 +606,16 @@ export default function Settings() {
 
     // On mobile, start with no section selected (shows the menu list)
     const [activeSection, setActiveSection] = useState<SettingsSection | null>(isMobile ? null : "appearance");
+
+    // Listen for the custom event to open a specific section (e.g. from StatusBar update pill)
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const section = (e as CustomEvent).detail as SettingsSection;
+            if (section) setActiveSection(section);
+        };
+        window.addEventListener('jpad-open-settings-section', handler);
+        return () => window.removeEventListener('jpad-open-settings-section', handler);
+    }, []);
     const [editingTheme, setEditingTheme] = useState<Theme | null>(null);
     const [editColors, setEditColors] = useState<ThemeColors | null>(null);
     const [editName, setEditName] = useState("");
@@ -616,6 +827,7 @@ export default function Settings() {
                                  isMobile && activeSection === "filename" ? "File Settings" :
                                  isMobile && activeSection === "vim" ? "Vim Mode" :
                                  isMobile && activeSection === "cloud" ? "Cloud Sync" :
+                                 isMobile && activeSection === "update" ? "Updates" :
                                  "Settings"}
                             </h2>
                             <p className="text-[11px] text-text-muted/60">
@@ -712,6 +924,30 @@ export default function Settings() {
                                     <div className="flex items-center gap-3">
                                         <Cloud size={18} />
                                         <span>Cloud Sync</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("update");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left relative",
+                                        activeSection === "update"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <Download size={18} />
+                                            {useUpdateStore.getState().hasUpdate && (
+                                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                            )}
+                                        </div>
+                                        <span>Updates</span>
                                     </div>
                                     {isMobile && <ChevronRight size={14} className="opacity-40" />}
                                 </button>
@@ -1101,6 +1337,11 @@ export default function Settings() {
                                 </div>
                                 <SyncSettings />
                             </div>
+                        )}
+
+                        {/* Update Section */}
+                        {activeSection === "update" && (
+                            <UpdateSection />
                         )}
                     </div>
                 )}

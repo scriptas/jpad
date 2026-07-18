@@ -15,6 +15,7 @@ import { twMerge } from "tailwind-merge";
 import { useThemeStore, initializeTheme } from "./store/useThemeStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { useSyncStore } from "./store/useSyncStore";
+import { initializeUpdateChecker } from "./store/useUpdateStore";
 import Settings from "./components/Settings";
 import NeonIcon from "./components/NeonIcon";
 import { platform } from "@tauri-apps/plugin-os";
@@ -57,6 +58,7 @@ export default function App() {
     refreshFiles();
     initializeTheme();
     initializeSync();
+    const cleanupUpdater = initializeUpdateChecker();
     const p = platform();
     setIsMacOS(p === "macos");
     const mobile = p === "android" || p === "ios";
@@ -144,6 +146,7 @@ export default function App() {
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener("focus", handleFocus);
+      cleanupUpdater();
       if (backPressHandler) {
         window.removeEventListener('android-back-pressed', backPressHandler);
       }

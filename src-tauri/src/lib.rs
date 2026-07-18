@@ -526,6 +526,171 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
     Ok(duration.as_millis() as u64)
 }
 
+/// Download an update installer from a URL and launch it.
+/// The app will exit after launching the installer so the update can replace files.
+#[tauri::command]
+fn download_and_install_update(app: tauri::AppHandle, url: String, filename: String) -> Result<String, String> {
+    use std::io::Write;
+
+    // Download to a temp directory
+    let tmp_dir = std::env::temp_dir().join("jpad-update");
+    fs::create_dir_all(&tmp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+    let dest = tmp_dir.join(&filename);
+
+    // Download the file using blocking HTTP client
+    let response = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?
+        .get(&url)
+        .header("User-Agent", "JPad-Updater")
+        .send()
+        .map_err(|e| format!("Failed to download update: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Download failed with status: {}", response.status()));
+    }
+
+    let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
+    let mut file = std::fs::File::create(&dest)
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+    file.write_all(&bytes)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    let dest_str = dest.to_string_lossy().to_string();
+
+    // Launch the installer based on platform and file type
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        let lowercase = filename.to_lowercase();
+
+        if lowercase.ends_with(".appimage") {
+            // Make executable and launch - AppImage replaces itself
+            Command::new("chmod")
+                .arg("+x")
+                .arg(&dest_str)
+                .output()
+                .map_err(|e| format!("Failed to chmod: {}", e))?;
+
+            // Try to find our own install location and copy over
+            if let Ok(exe_path) = std::env::current_exe() {
+                let exe_str = exe_path.to_string_lossy().to_string();
+                // If running from an AppImage, replace it
+                if exe_str.to_lowercase().contains("appimage") || std::env::var("APPIMAGE").is_ok() {
+                    let appimage_path = std::env::var("APPIMAGE").unwrap_or(exe_str);
+                    let _ = fs::copy(&dest, &appimage_path);
+                    // Relaunch
+                    Command::new(&appimage_path)
+                        .spawn()
+                        .map_err(|e| format!("Failed to relaunch: {}", e))?;
+                    app.exit(0);
+                    return Ok("Relaunching...".to_string());
+                }
+            }
+
+            // Fallback: just open the AppImage
+            Command::new("xdg-open")
+                .arg(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to open AppImage: {}", e))?;
+        } else if lowercase.ends_with(".deb") {
+            // Try pkexec for graphical sudo, fallback to xdg-open
+            let result = Command::new("pkexec")
+                .arg("dpkg")
+                .arg("-i")
+                .arg(&dest_str)
+                .spawn();
+
+            match result {
+                Ok(_) => {
+                    // Give installer a moment then exit
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    app.exit(0);
+                    return Ok("Installing...".to_string());
+                },
+                Err(_) => {
+                    // Fallback: open with default handler
+                    Command::new("xdg-open")
+                        .arg(&dest_str)
+                        .spawn()
+                        .map_err(|e| format!("Failed to open .deb: {}", e))?;
+                }
+            }
+        } else if lowercase.ends_with(".rpm") {
+            let result = Command::new("pkexec")
+                .arg("rpm")
+                .arg("-U")
+                .arg("--force")
+                .arg(&dest_str)
+                .spawn();
+
+            match result {
+                Ok(_) => {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    app.exit(0);
+                    return Ok("Installing...".to_string());
+                },
+                Err(_) => {
+                    Command::new("xdg-open")
+                        .arg(&dest_str)
+                        .spawn()
+                        .map_err(|e| format!("Failed to open .rpm: {}", e))?;
+                }
+            }
+        } else {
+            // Generic: open file manager
+            Command::new("xdg-open")
+                .arg(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        if filename.to_lowercase().ends_with(".dmg") {
+            // Open the DMG - user will see the standard macOS install flow
+            Command::new("open")
+                .arg(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to open DMG: {}", e))?;
+        } else {
+            Command::new("open")
+                .arg(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+        }
+        // Give time for installer to mount/open, then quit so user can drag new version
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        app.exit(0);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let lowercase = filename.to_lowercase();
+
+        if lowercase.ends_with(".exe") || lowercase.ends_with(".msi") {
+            // Launch the installer, which will handle replacing the old version
+            Command::new(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to launch installer: {}", e))?;
+            // Exit so the installer can replace files
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            app.exit(0);
+        } else {
+            Command::new("explorer")
+                .arg(&dest_str)
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+        }
+    }
+
+    Ok(format!("Downloaded to: {}", dest_str))
+}
+
 #[tauri::command]
 async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(), String> {
     #[cfg(not(mobile))]
@@ -640,6 +805,7 @@ pub fn run() {
             delete_with_terminal,
             search_files,
             open_in_new_window,
+            download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
