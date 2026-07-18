@@ -14,6 +14,7 @@ import { Extension } from "@tiptap/core";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useVimMode } from "../hooks/useVimMode";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -124,29 +125,80 @@ function ColorPicker({
     onSelect,
     onClose,
     label,
+    triggerRef,
 }: {
     colors: { name: string; value: string }[];
     currentColor: string;
     onSelect: (color: string) => void;
     onClose: () => void;
     label: string;
+    triggerRef: React.RefObject<HTMLButtonElement | null>;
 }) {
     const ref = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+    // Calculate position relative to trigger button
+    useEffect(() => {
+        const updatePosition = () => {
+            if (triggerRef?.current) {
+                const rect = triggerRef.current.getBoundingClientRect();
+                // Position below the button
+                setCoords({
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                });
+            }
+        };
+
+        updatePosition();
+
+        window.addEventListener("resize", updatePosition);
+        
+        const handleScroll = () => {
+            onClose();
+        };
+        
+        window.addEventListener("scroll", handleScroll, true);
+
+        return () => {
+            window.removeEventListener("resize", updatePosition);
+            window.removeEventListener("scroll", handleScroll, true);
+        };
+    }, [triggerRef, onClose]);
 
     useEffect(() => {
         const handle = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
+            if (
+                ref.current && !ref.current.contains(e.target as Node) &&
+                triggerRef?.current && !triggerRef.current.contains(e.target as Node)
+            ) {
                 onClose();
             }
         };
         document.addEventListener("mousedown", handle);
         return () => document.removeEventListener("mousedown", handle);
-    }, [onClose]);
+    }, [onClose, triggerRef]);
 
-    return (
+    if (!coords) return null;
+
+    // Adjust left position if it goes offscreen
+    let left = coords.left;
+    const pickerWidth = 180; // Estimated width
+    if (left + pickerWidth > window.innerWidth) {
+        left = window.innerWidth - pickerWidth - 12;
+    }
+    if (left < 12) {
+        left = 12;
+    }
+
+    return createPortal(
         <div
             ref={ref}
-            className="absolute top-full left-0 mt-1 z-50 bg-surface border-2 border-border rounded-lg shadow-xl shadow-black/40 animate-in"
+            className="fixed z-[9999] bg-surface border-2 border-border rounded-lg shadow-xl shadow-black/40 animate-in"
+            style={{
+                top: `${coords.top}px`,
+                left: `${left}px`,
+            }}
         >
             <div className="px-3 py-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-wider border-b-2 border-border">
                 {label}
@@ -174,7 +226,8 @@ function ColorPicker({
                     />
                 ))}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -323,6 +376,9 @@ export default function Editor() {
 
     const [showTextColor, setShowTextColor] = useState(false);
     const [showHighlight, setShowHighlight] = useState(false);
+
+    const textColorBtnRef = useRef<HTMLButtonElement>(null);
+    const highlightBtnRef = useRef<HTMLButtonElement>(null);
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
@@ -888,6 +944,7 @@ export default function Editor() {
 
                 <div className="relative">
                     <button
+                        ref={textColorBtnRef}
                         onClick={() => { setShowTextColor(!showTextColor); setShowHighlight(false); }}
                         title="Text Color"
                         className={cn(
@@ -907,6 +964,7 @@ export default function Editor() {
                         <ColorPicker
                             colors={TEXT_COLORS}
                             currentColor={currentTextColor}
+                            triggerRef={textColorBtnRef}
                             onSelect={(color) => {
                                 if (color) {
                                     editor?.chain().focus().setColor(color).run();
@@ -922,6 +980,7 @@ export default function Editor() {
 
                 <div className="relative">
                     <button
+                        ref={highlightBtnRef}
                         onClick={() => { setShowHighlight(!showHighlight); setShowTextColor(false); }}
                         title="Highlight"
                         className={cn(
@@ -941,6 +1000,7 @@ export default function Editor() {
                         <ColorPicker
                             colors={HIGHLIGHT_COLORS}
                             currentColor={currentHighlight}
+                            triggerRef={highlightBtnRef}
                             onSelect={(color) => {
                                 if (color) {
                                     editor?.chain().focus().toggleHighlight({ color }).run();
