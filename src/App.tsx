@@ -18,6 +18,7 @@ import { useSyncStore } from "./store/useSyncStore";
 import { initializeUpdateChecker } from "./store/useUpdateStore";
 import Settings from "./components/Settings";
 import NeonIcon from "./components/NeonIcon";
+import WindowResizeHandles from "./components/WindowResizeHandles";
 import { platform } from "@tauri-apps/plugin-os";
 
 function cn(...inputs: ClassValue[]) {
@@ -326,7 +327,7 @@ export default function App() {
 
   return (
     <div className={cn(
-      "flex flex-col h-full w-full bg-background/85 text-text overflow-hidden",
+      "flex flex-col h-full w-full bg-background/85 text-text overflow-hidden relative",
       isMobile && "fixed inset-0", // Prevent browser panning on mobile
       !isMacOS && "backdrop-blur-xl", // Native vibrancy used on macOS instead
       (showNeonBorder && !isMaximized && !isFullscreen)
@@ -334,6 +335,8 @@ export default function App() {
         : (isMobile || isMaximized || isFullscreen ? "border-none" : "border border-border/30"),
       isMaximized || isFullscreen || isMobile ? "rounded-none" : (isMacOS ? "rounded-[12px]" : "rounded-[10px]")
     )}>
+      {/* Invisible resize handles for easier edge/corner grabbing on desktop */}
+      {!isMobile && !isMaximized && !isFullscreen && <WindowResizeHandles />}
       {/* Custom Title Bar */}
       {!isFullscreen && (
         <div
