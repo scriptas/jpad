@@ -4048,7 +4048,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-appjpad"
-version = "2.3.6"
+version = "2.3.7"
 dependencies = [
  "base64 0.22.1",
  "cocoa",

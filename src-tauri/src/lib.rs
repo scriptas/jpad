@@ -530,8 +530,6 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
 /// The app will exit after launching the installer so the update can replace files.
 #[tauri::command]
 fn download_and_install_update(app: tauri::AppHandle, url: String, filename: String) -> Result<String, String> {
-    use std::io::Write;
-
     // Download to a temp directory
     let tmp_dir = std::env::temp_dir().join("jpad-update");
     fs::create_dir_all(&tmp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
@@ -552,9 +550,7 @@ fn download_and_install_update(app: tauri::AppHandle, url: String, filename: Str
     }
 
     let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
-    let mut file = std::fs::File::create(&dest)
-        .map_err(|e| format!("Failed to create file: {}", e))?;
-    file.write_all(&bytes)
+    std::fs::write(&dest, &bytes)
         .map_err(|e| format!("Failed to write file: {}", e))?;
 
     let dest_str = dest.to_string_lossy().to_string();

@@ -84,7 +84,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
             set({
                 downloading: false,
                 downloadProgress: 0,
-                error: err instanceof Error ? err.message : 'Update failed',
+                error: typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Update failed'),
             });
         }
     },
