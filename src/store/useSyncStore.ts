@@ -43,6 +43,8 @@ const DEFAULT_STATUS: SyncStatus = {
   filesDeletedRemote: 0,
 };
 
+let syncListenerInitialized = false;
+
 export const useSyncStore = create<SyncStore>()(
   persist(
     (set, get) => ({
@@ -71,6 +73,24 @@ export const useSyncStore = create<SyncStore>()(
 
       initializeSync: async () => {
         const { config } = get();
+
+        // Register Tauri background trigger-sync listener
+        if (!syncListenerInitialized) {
+          syncListenerInitialized = true;
+          import('@tauri-apps/api/event').then(({ listen }) => {
+            listen('trigger-sync', () => {
+              const state = useSyncStore.getState();
+              if (state.config.enabled && !state.status.syncing) {
+                const now = Date.now();
+                const last = state.status.lastSync ? new Date(state.status.lastSync).getTime() : 0;
+                if (now - last >= state.autoSyncInterval - 5000) {
+                  console.log('Background trigger-sync event received, initiating background file sync');
+                  state.syncNow().catch(console.error);
+                }
+              }
+            });
+          }).catch(console.error);
+        }
 
         // If not enabled, do nothing
         if (!config.enabled) {

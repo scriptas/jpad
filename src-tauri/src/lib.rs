@@ -5,6 +5,7 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use tauri::Emitter;
 
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -578,6 +579,16 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .setup(|_app| {
             use tauri::Manager;
+
+            // Emit background sync trigger event every 15 seconds to bypass webview background throttling
+            let app_handle = _app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                    let _ = app_handle.emit("trigger-sync", ());
+                }
+            });
+
             if let Some(window) = _app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
                 {
