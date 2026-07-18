@@ -40,52 +40,46 @@ function isNewerVersion(current: string, remote: string): boolean {
  * Fetch the latest release info from GitHub.
  */
 export async function checkForUpdate(): Promise<{ hasUpdate: boolean; release: ReleaseInfo | null }> {
-    try {
-        const response = await fetch(GITHUB_API_URL, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'JPad-UpdateChecker',
-            },
-        });
+    const response = await fetch(GITHUB_API_URL, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'JPad-UpdateChecker',
+        },
+    });
 
-        if (!response.ok) {
-            console.warn('[Update] GitHub API returned:', response.status);
-            return { hasUpdate: false, release: null };
-        }
-
-        const data = await response.json() as any;
-
-        // Extract version from tag_name (e.g. "v2.2.0" -> "2.2.0")
-        const tagName: string = data.tag_name || '';
-        const version = tagName.replace(/^v/, '');
-
-        if (!version) {
-            return { hasUpdate: false, release: null };
-        }
-
-        const release: ReleaseInfo = {
-            version,
-            tagName,
-            name: data.name || `JPad ${tagName}`,
-            body: data.body || '',
-            htmlUrl: data.html_url || '',
-            publishedAt: data.published_at || '',
-            assets: (data.assets || []).map((a: any) => ({
-                name: a.name,
-                downloadUrl: a.browser_download_url,
-                size: a.size,
-                contentType: a.content_type,
-            })),
-        };
-
-        const hasUpdate = isNewerVersion(CURRENT_VERSION, version);
-
-        return { hasUpdate, release };
-    } catch (err) {
-        console.warn('[Update] Failed to check for updates:', err);
-        return { hasUpdate: false, release: null };
+    if (!response.ok) {
+        throw new Error(`GitHub API returned status ${response.status}`);
     }
+
+    const data = await response.json() as any;
+
+    // Extract version from tag_name (e.g. "v2.2.0" -> "2.2.0")
+    const tagName: string = data.tag_name || '';
+    const version = tagName.replace(/^v/, '');
+
+    if (!version) {
+        throw new Error('Invalid release data from GitHub (no tag_name found)');
+    }
+
+    const release: ReleaseInfo = {
+        version,
+        tagName,
+        name: data.name || `JPad ${tagName}`,
+        body: data.body || '',
+        htmlUrl: data.html_url || '',
+        publishedAt: data.published_at || '',
+        assets: (data.assets || []).map((a: any) => ({
+            name: a.name,
+            downloadUrl: a.browser_download_url,
+            size: a.size,
+            contentType: a.content_type,
+        })),
+    };
+
+    const hasUpdate = isNewerVersion(CURRENT_VERSION, version);
+
+    return { hasUpdate, release };
 }
 
 /**

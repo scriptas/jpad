@@ -23,6 +23,13 @@
     "core:event:default",
     "core:webview:allow-webview-position",
     "core:webview:allow-webview-size",
-    "core:webview:allow-internal-toggle-devtools"
+    "core:webview:allow-internal-toggle-devtools",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" }
+      ]
+    }
   ]
 }
