@@ -645,7 +645,40 @@ async fn download_and_install_update(
                 // If running from an AppImage, replace it
                 if exe_str.to_lowercase().contains("appimage") || std::env::var("APPIMAGE").is_ok() {
                     let appimage_path = std::env::var("APPIMAGE").unwrap_or(exe_str);
-                    let _ = fs::copy(&dest, &appimage_path);
+                    
+                    // Replace the running AppImage using a temporary file in the same directory
+                    // to avoid ETXTBSY (Text file busy) error from writing directly to a running binary.
+                    let appimage_path_buf = Path::new(&appimage_path);
+                    if let Some(parent) = appimage_path_buf.parent() {
+                        let temp_update = parent.join(format!(
+                            ".{}.update",
+                            appimage_path_buf.file_name().unwrap_or_default().to_string_lossy()
+                        ));
+                        
+                        // Copy the new AppImage to the temp file in the same directory
+                        fs::copy(&dest, &temp_update)
+                            .map_err(|e| format!("Failed to copy update to target directory: {}", e))?;
+                        
+                        // Ensure it's executable
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            if let Ok(metadata) = fs::metadata(&temp_update) {
+                                let mut perms = metadata.permissions();
+                                perms.set_mode(perms.mode() | 0o755);
+                                let _ = fs::set_permissions(&temp_update, perms);
+                            }
+                        }
+                        
+                        // Atomically rename it over the old AppImage
+                        fs::rename(&temp_update, &appimage_path)
+                            .map_err(|e| format!("Failed to replace old AppImage: {}", e))?;
+                    } else {
+                        // Fallback to direct copy if parent cannot be determined
+                        fs::copy(&dest, &appimage_path)
+                            .map_err(|e| format!("Failed to copy update directly: {}", e))?;
+                    }
+
                     // Relaunch
                     Command::new(&appimage_path)
                         .spawn()
