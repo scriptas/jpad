@@ -17,6 +17,7 @@ import {
     ExternalLink,
     RefreshCw,
     Loader2,
+    Import,
 } from "lucide-react";
 import SyncSettings from "./SyncSettings";
 import { useUpdateStore } from "../store/useUpdateStore";
@@ -27,6 +28,9 @@ import {
     type Theme,
     type ThemeColors,
 } from "../store/useThemeStore";
+import { useStore } from "../store/useStore";
+import { migrateFolder } from "../services/migrationService";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -586,7 +590,183 @@ function UpdateSection() {
     );
 }
 
-type SettingsSection = "appearance" | "filename" | "vim" | "cloud" | "update";
+type SettingsSection = "appearance" | "filename" | "vim" | "cloud" | "update" | "migration";
+
+function MigrationSettings() {
+    const { notesRoot, refreshFiles } = useStore();
+    const [sourceApp, setSourceApp] = useState<"obsidian" | "joplin" | null>(null);
+    const [status, setStatus] = useState<{
+        state: "idle" | "importing" | "success" | "error";
+        current: number;
+        total: number;
+        currentFile: string;
+        errorMsg?: string;
+    }>({
+        state: "idle",
+        current: 0,
+        total: 0,
+        currentFile: ""
+    });
+
+    const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setStatus({
+            state: "importing",
+            current: 0,
+            total: 0,
+            currentFile: "Scanning files..."
+        });
+
+        try {
+            let resolvedRoot = notesRoot;
+            if (!resolvedRoot) {
+                resolvedRoot = await invoke<string>("get_notes_root");
+            }
+
+            await migrateFolder(files, resolvedRoot, (progress) => {
+                setStatus({
+                    state: "importing",
+                    current: progress.current,
+                    total: progress.total,
+                    currentFile: progress.currentFile
+                });
+            });
+
+            setStatus(prev => ({
+                ...prev,
+                state: "success"
+            }));
+
+            // Refresh store files so they immediately appear in the sidebar
+            await refreshFiles();
+        } catch (err: any) {
+            console.error("Migration failed:", err);
+            setStatus({
+                state: "error",
+                current: 0,
+                total: 0,
+                currentFile: "",
+                errorMsg: err.message || String(err)
+            });
+        }
+    };
+
+    return (
+        <div className="p-6 space-y-6">
+            <div>
+                <h3 className="text-sm font-semibold text-text mb-2">Import & Migrate Notes</h3>
+                <p className="text-xs text-text-muted/60 leading-relaxed">
+                    Easily import your existing notes from other applications. Your markdown files will be parsed, 
+                    referenced local images will be embedded as base64 data, and they will be saved directly into your 
+                    local JPad notes folder.
+                </p>
+            </div>
+
+            <div className="rounded-xl border border-border/30 bg-surface/30 p-5 space-y-4">
+                <h4 className="text-[11px] font-bold text-text uppercase tracking-wider">Select Source App</h4>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={() => {
+                            setSourceApp("obsidian");
+                            setStatus({ state: "idle", current: 0, total: 0, currentFile: "" });
+                        }}
+                        className={cn(
+                            "p-4 rounded-xl border text-left transition-all cursor-pointer",
+                            sourceApp === "obsidian" ? "border-primary bg-primary/5" : "border-border/30 bg-surface/20"
+                        )}
+                    >
+                        <div className="font-semibold text-xs text-text">Obsidian Vault</div>
+                        <div className="text-[10px] text-text-muted mt-1">Converts vault folder with markdown & attachments.</div>
+                    </button>
+                    <button 
+                        onClick={() => {
+                            setSourceApp("joplin");
+                            setStatus({ state: "idle", current: 0, total: 0, currentFile: "" });
+                        }}
+                        className={cn(
+                            "p-4 rounded-xl border text-left transition-all cursor-pointer",
+                            sourceApp === "joplin" ? "border-primary bg-primary/5" : "border-border/30 bg-surface/20"
+                        )}
+                    >
+                        <div className="font-semibold text-xs text-text">Joplin Export</div>
+                        <div className="text-[10px] text-text-muted mt-1">Converts Joplin folder exported via "MD - Markdown".</div>
+                    </button>
+                </div>
+
+                {sourceApp && status.state === "idle" && (
+                    <div className="pt-2">
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/40 hover:border-primary/50 hover:bg-primary/5 rounded-xl p-8 cursor-pointer transition-all duration-300">
+                            <input
+                                type="file"
+                                // @ts-ignore
+                                webkitdirectory=""
+                                directory=""
+                                className="hidden"
+                                onChange={handleFolderUpload}
+                            />
+                            <div className="text-center">
+                                <Import size={24} className="text-primary mx-auto mb-2" />
+                                <span className="text-xs font-semibold text-text">Choose Folder to Migrate</span>
+                                <p className="text-[10px] text-text-muted/60 mt-1">Select the root directory of your vault or export</p>
+                            </div>
+                        </label>
+                    </div>
+                )}
+
+                {status.state === "importing" && (
+                    <div className="rounded-xl bg-surface/25 border border-border/10 p-5 space-y-3">
+                        <div className="flex justify-between text-[11px]">
+                            <span className="text-text font-medium">Migrating your notes...</span>
+                            <span className="text-text-muted">{status.current} / {status.total} files</span>
+                        </div>
+                        <div className="w-full bg-surface-hover h-1.5 rounded-full overflow-hidden">
+                            <div 
+                                className="bg-primary h-full transition-all duration-300"
+                                style={{ width: status.total > 0 ? `${(status.current / status.total) * 100}%` : "0%" }}
+                            />
+                        </div>
+                        <p className="text-[9px] text-text-muted italic truncate">{status.currentFile}</p>
+                    </div>
+                )}
+
+                {status.state === "success" && (
+                    <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-5 text-center space-y-2">
+                        <div className="text-xs font-semibold text-green-400">Migration Completed Successfully!</div>
+                        <p className="text-[10px] text-text-muted">
+                            Imported {status.total} notes. Check your JPad sidebar to see the migrated folder structure.
+                        </p>
+                        <button 
+                            onClick={() => {
+                                setSourceApp(null);
+                                setStatus({ state: "idle", current: 0, total: 0, currentFile: "" });
+                            }}
+                            className="mt-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-black font-semibold text-[10px] rounded transition-all cursor-pointer"
+                        >
+                            Done
+                        </button>
+                    </div>
+                )}
+
+                {status.state === "error" && (
+                    <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-5 text-center space-y-2">
+                        <div className="text-xs font-semibold text-red-400">Migration Failed</div>
+                        <p className="text-[10px] text-text-muted italic">
+                            Error: {status.errorMsg}
+                        </p>
+                        <button 
+                            onClick={() => setStatus({ state: "idle", current: 0, total: 0, currentFile: "" })}
+                            className="mt-2 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold text-[10px] rounded transition-all cursor-pointer"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default function Settings() {
     const {
@@ -828,6 +1008,7 @@ export default function Settings() {
                                  isMobile && activeSection === "vim" ? "Vim Mode" :
                                  isMobile && activeSection === "cloud" ? "Cloud Sync" :
                                  isMobile && activeSection === "update" ? "Updates" :
+                                 isMobile && activeSection === "migration" ? "Migrate Notes" :
                                  "Settings"}
                             </h2>
                             <p className="text-[11px] text-text-muted/60">
@@ -948,6 +1129,27 @@ export default function Settings() {
                                             )}
                                         </div>
                                         <span>Updates</span>
+                                    </div>
+                                    {isMobile && <ChevronRight size={14} className="opacity-40" />}
+                                </button>
+
+                                <div className="my-2 border-t border-border/30" />
+
+                                <button
+                                    onClick={() => {
+                                        setActiveSection("migration");
+                                        if (editingTheme) handleCancelEdit();
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all text-left cursor-pointer",
+                                        activeSection === "migration"
+                                            ? "bg-primary/15 text-primary border border-primary/20"
+                                            : "text-text-muted hover:text-text hover:bg-surface-hover bg-surface/10 border border-transparent"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Import size={18} />
+                                        <span>Migrate Notes</span>
                                     </div>
                                     {isMobile && <ChevronRight size={14} className="opacity-40" />}
                                 </button>
@@ -1342,6 +1544,11 @@ export default function Settings() {
                         {/* Update Section */}
                         {activeSection === "update" && (
                             <UpdateSection />
+                        )}
+
+                        {/* Migration Section */}
+                        {activeSection === "migration" && (
+                            <MigrationSettings />
                         )}
                     </div>
                 )}
