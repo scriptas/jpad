@@ -1,6 +1,6 @@
 [package]
 name = "tauri-appjpad"
-version = "2.4.0"
+version = "2.4.1"
 license = "MIT"
 description = "A Tauri App"
 authors = ["you"]
@@ -28,6 +28,8 @@ serde_json = "1"
 base64 = "0.22"
 dirs = "5.0"
 reqwest = { version = "0.12", features = ["blocking", "rustls-tls"], default-features = false }
+tokio = { version = "1", features = ["fs", "io-util"] }
+
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25"

@@ -526,32 +526,102 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
     Ok(duration.as_millis() as u64)
 }
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+#[derive(Default)]
+pub struct UpdateManager {
+    cancelled: Arc<AtomicBool>,
+    is_downloading: Arc<AtomicBool>,
+}
+
+#[tauri::command]
+fn cancel_update_download(state: tauri::State<'_, UpdateManager>) {
+    if state.is_downloading.load(Ordering::SeqCst) {
+        state.cancelled.store(true, Ordering::SeqCst);
+    }
+}
+
 /// Download an update installer from a URL and launch it.
 /// The app will exit after launching the installer so the update can replace files.
 #[tauri::command]
-fn download_and_install_update(app: tauri::AppHandle, url: String, filename: String) -> Result<String, String> {
+async fn download_and_install_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, UpdateManager>,
+    url: String,
+    filename: String,
+) -> Result<String, String> {
     // Download to a temp directory
     let tmp_dir = std::env::temp_dir().join("jpad-update");
     fs::create_dir_all(&tmp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
     let dest = tmp_dir.join(&filename);
 
-    // Download the file using blocking HTTP client
-    let response = reqwest::blocking::Client::builder()
+    // Create the HTTP client (async)
+    let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
         .get(&url)
         .header("User-Agent", "JPad-Updater")
         .send()
+        .await
         .map_err(|e| format!("Failed to download update: {}", e))?;
 
     if !response.status().is_success() {
         return Err(format!("Download failed with status: {}", response.status()));
     }
 
-    let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
-    std::fs::write(&dest, &bytes)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    let total_size = response.content_length().unwrap_or(0);
+
+    state.is_downloading.store(true, Ordering::SeqCst);
+    state.cancelled.store(false, Ordering::SeqCst);
+
+    // Ensure we reset downloading status on return/panic
+    struct Cleanup {
+        is_downloading: Arc<AtomicBool>,
+    }
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            self.is_downloading.store(false, Ordering::SeqCst);
+        }
+    }
+    let _cleanup = Cleanup {
+        is_downloading: state.is_downloading.clone(),
+    };
+
+    let mut file = tokio::fs::File::create(&dest)
+        .await
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+
+    let mut downloaded = 0;
+    let mut response = response;
+
+    while let Some(chunk) = response.chunk().await.map_err(|e| format!("Error downloading chunk: {}", e))? {
+        if state.cancelled.load(Ordering::SeqCst) {
+            drop(file);
+            let _ = fs::remove_file(&dest);
+            return Err("CANCELED".to_string());
+        }
+
+        tokio::io::AsyncWriteExt::write_all(&mut file, &chunk)
+            .await
+            .map_err(|e| format!("Failed to write chunk: {}", e))?;
+
+        downloaded += chunk.len() as u64;
+
+        if total_size > 0 {
+            let progress = (downloaded as f64 / total_size as f64 * 100.0) as u64;
+            let _ = app.emit("update-progress", progress);
+        }
+    }
+
+    // Explicitly flush and close the file
+    tokio::io::AsyncWriteExt::flush(&mut file)
+        .await
+        .map_err(|e| format!("Failed to flush file: {}", e))?;
+    drop(file);
 
     let dest_str = dest.to_string_lossy().to_string();
 
@@ -662,6 +732,7 @@ fn download_and_install_update(app: tauri::AppHandle, url: String, filename: Str
         // Give time for installer to mount/open, then quit so user can drag new version
         std::thread::sleep(std::time::Duration::from_secs(2));
         app.exit(0);
+        return Ok("Installing...".to_string());
     }
 
     #[cfg(target_os = "windows")]
@@ -677,6 +748,7 @@ fn download_and_install_update(app: tauri::AppHandle, url: String, filename: Str
             // Exit so the installer can replace files
             std::thread::sleep(std::time::Duration::from_millis(500));
             app.exit(0);
+            return Ok("Installing...".to_string());
         } else {
             Command::new("explorer")
                 .arg(&dest_str)
@@ -740,6 +812,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
+        .manage(UpdateManager::default())
         .setup(|_app| {
             use tauri::Manager;
 
@@ -804,6 +877,7 @@ pub fn run() {
             search_files,
             open_in_new_window,
             download_and_install_update,
+            cancel_update_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -17,6 +17,7 @@ interface UpdateState {
     // Actions
     checkForUpdates: () => Promise<void>;
     downloadAndInstall: () => Promise<void>;
+    cancelDownload: () => Promise<void>;
     dismiss: () => void;
     getDownloadAsset: () => ReleaseAsset | null;
 }
@@ -71,7 +72,14 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
 
         set({ downloading: true, downloadProgress: 0, error: null });
 
+        let unlistenProgress: (() => void) | null = null;
+
         try {
+            const { listen } = await import('@tauri-apps/api/event');
+            unlistenProgress = await listen<number>('update-progress', (event) => {
+                set({ downloadProgress: event.payload });
+            });
+
             const { invoke } = await import('@tauri-apps/api/core');
             await invoke('download_and_install_update', {
                 url: asset.downloadUrl,
@@ -81,11 +89,29 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
             // and the app will be replaced. On others, we stay running.
             set({ downloading: false, downloadProgress: 100 });
         } catch (err) {
-            set({
-                downloading: false,
-                downloadProgress: 0,
-                error: typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Update failed'),
-            });
+            if (err === 'CANCELED') {
+                set({ downloading: false, downloadProgress: 0, error: null });
+            } else {
+                set({
+                    downloading: false,
+                    downloadProgress: 0,
+                    error: typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Update failed'),
+                });
+            }
+        } finally {
+            if (unlistenProgress) {
+                unlistenProgress();
+            }
+        }
+    },
+
+    cancelDownload: async () => {
+        if (!get().downloading) return;
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('cancel_update_download');
+        } catch (err) {
+            console.error('Failed to cancel download:', err);
         }
     },
 

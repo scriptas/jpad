@@ -408,6 +408,7 @@ function UpdateSection() {
         lastChecked,
         checkForUpdates,
         downloadAndInstall,
+        cancelDownload,
         getDownloadAsset,
     } = useUpdateStore();
 
@@ -510,9 +511,7 @@ function UpdateSection() {
                                 />
                             </div>
                         </div>
-                    )}
-
-                    {/* Action Buttons */}
+                    )}                    {/* Action Buttons */}
                     <div className="flex items-center gap-3 mt-4">
                         <button
                             onClick={downloadAndInstall}
@@ -529,10 +528,20 @@ function UpdateSection() {
                             ) : (
                                 <Download size={14} />
                             )}
-                            {downloading ? "Installing..." : `Update to v${latestRelease.version}`}
+                            {downloading ? "Downloading..." : `Update to v${latestRelease.version}`}
                         </button>
 
-                        {latestRelease.htmlUrl && (
+                        {downloading && (
+                            <button
+                                onClick={cancelDownload}
+                                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all border border-red-500/20"
+                            >
+                                <X size={14} />
+                                Cancel
+                            </button>
+                        )}
+
+                        {!downloading && latestRelease.htmlUrl && (
                             <a
                                 href="#"
                                 onClick={(e) => {
