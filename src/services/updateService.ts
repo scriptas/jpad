@@ -77,7 +77,15 @@ export async function checkForUpdate(): Promise<{ hasUpdate: boolean; release: R
         })),
     };
 
-    const hasUpdate = isNewerVersion(CURRENT_VERSION, version);
+    let currentVersion = CURRENT_VERSION;
+    try {
+        const { getVersion } = await import('@tauri-apps/api/app');
+        currentVersion = await getVersion();
+    } catch (e) {
+        console.warn('Failed to get dynamic version from Tauri, using fallback:', e);
+    }
+
+    const hasUpdate = isNewerVersion(currentVersion, version);
 
     return { hasUpdate, release };
 }

@@ -42,9 +42,20 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
         set({ checking: true, error: null });
         try {
             const result = await checkForUpdate();
+            
+            // Get current version dynamically from Tauri if available
+            let currentVersion = get().currentVersion;
+            try {
+                const { getVersion } = await import('@tauri-apps/api/app');
+                currentVersion = await getVersion();
+            } catch (e) {
+                console.warn('Failed to get dynamic version from Tauri:', e);
+            }
+
             set({
                 hasUpdate: result.hasUpdate,
                 latestRelease: result.release,
+                currentVersion,
                 lastChecked: new Date().toISOString(),
                 checking: false,
                 // Reset dismissed when a new version is found
@@ -131,6 +142,16 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
  * Call once from App.tsx on mount.
  */
 export function initializeUpdateChecker(): () => void {
+    // Fetch version immediately to update store state and avoid hardcoded fallback showing in UI
+    import('@tauri-apps/api/app')
+        .then(m => m.getVersion())
+        .then(version => {
+            useUpdateStore.setState({ currentVersion: version });
+        })
+        .catch(err => {
+            console.error('Failed to initialize updater version:', err);
+        });
+
     // Initial check after a short delay to not block startup
     const initialTimeout = setTimeout(() => {
         useUpdateStore.getState().checkForUpdates();
