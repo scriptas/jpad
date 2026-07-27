@@ -526,6 +526,31 @@ fn get_file_mtime(path: String) -> Result<u64, String> {
     Ok(duration.as_millis() as u64)
 }
 
+#[tauri::command]
+async fn pick_folder() -> Result<Option<String>, String> {
+    let folder = rfd::AsyncFileDialog::new()
+        .set_title("Select Vault Folder to Migrate")
+        .pick_folder()
+        .await;
+
+    Ok(folder.map(|f| f.path().to_string_lossy().to_string().replace('\\', "/")))
+}
+
+#[tauri::command]
+async fn pick_files() -> Result<Vec<String>, String> {
+    let files = rfd::AsyncFileDialog::new()
+        .set_title("Select Files to Migrate")
+        .add_filter("Markdown Files", &["md", "markdown", "txt"])
+        .pick_files()
+        .await;
+
+    Ok(files
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| f.path().to_string_lossy().to_string().replace('\\', "/"))
+        .collect())
+}
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -911,6 +936,8 @@ pub fn run() {
             open_in_new_window,
             download_and_install_update,
             cancel_update_download,
+            pick_folder,
+            pick_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

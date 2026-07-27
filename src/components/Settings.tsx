@@ -18,6 +18,7 @@ import {
     RefreshCw,
     Loader2,
     Import,
+    Folder,
 } from "lucide-react";
 import SyncSettings from "./SyncSettings";
 import { useUpdateStore } from "../store/useUpdateStore";
@@ -29,7 +30,7 @@ import {
     type ThemeColors,
 } from "../store/useThemeStore";
 import { useStore } from "../store/useStore";
-import { migrateFolder } from "../services/migrationService";
+import { migrateFolder, migrateFolderFromPath, migrateFilePaths } from "../services/migrationService";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { clsx, type ClassValue } from "clsx";
@@ -617,6 +618,88 @@ function MigrationSettings() {
         currentFile: ""
     });
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const getNotesRoot = async () => {
+        let resolvedRoot = notesRoot;
+        if (!resolvedRoot) {
+            resolvedRoot = await invoke<string>("get_notes_root");
+        }
+        return resolvedRoot;
+    };
+
+    const handlePickNativeFolder = async () => {
+        try {
+            const folderPath = await invoke<string | null>("pick_folder");
+            if (!folderPath) return;
+
+            setStatus({
+                state: "importing",
+                current: 0,
+                total: 0,
+                currentFile: "Scanning vault directory..."
+            });
+
+            const root = await getNotesRoot();
+            await migrateFolderFromPath(folderPath, root, (progress) => {
+                setStatus({
+                    state: "importing",
+                    current: progress.current,
+                    total: progress.total,
+                    currentFile: progress.currentFile
+                });
+            });
+
+            setStatus(prev => ({ ...prev, state: "success" }));
+            await refreshFiles();
+        } catch (err: any) {
+            console.error("Migration failed:", err);
+            setStatus({
+                state: "error",
+                current: 0,
+                total: 0,
+                currentFile: "",
+                errorMsg: err.message || String(err)
+            });
+        }
+    };
+
+    const handlePickNativeFiles = async () => {
+        try {
+            const filePaths = await invoke<string[]>("pick_files");
+            if (!filePaths || filePaths.length === 0) return;
+
+            setStatus({
+                state: "importing",
+                current: 0,
+                total: 0,
+                currentFile: "Preparing notes..."
+            });
+
+            const root = await getNotesRoot();
+            await migrateFilePaths(filePaths, root, (progress) => {
+                setStatus({
+                    state: "importing",
+                    current: progress.current,
+                    total: progress.total,
+                    currentFile: progress.currentFile
+                });
+            });
+
+            setStatus(prev => ({ ...prev, state: "success" }));
+            await refreshFiles();
+        } catch (err: any) {
+            console.error("Migration failed:", err);
+            setStatus({
+                state: "error",
+                current: 0,
+                total: 0,
+                currentFile: "",
+                errorMsg: err.message || String(err)
+            });
+        }
+    };
+
     const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -629,12 +712,8 @@ function MigrationSettings() {
         });
 
         try {
-            let resolvedRoot = notesRoot;
-            if (!resolvedRoot) {
-                resolvedRoot = await invoke<string>("get_notes_root");
-            }
-
-            await migrateFolder(files, resolvedRoot, (progress) => {
+            const root = await getNotesRoot();
+            await migrateFolder(files, root, (progress) => {
                 setStatus({
                     state: "importing",
                     current: progress.current,
@@ -648,7 +727,6 @@ function MigrationSettings() {
                 state: "success"
             }));
 
-            // Refresh store files so they immediately appear in the sidebar
             await refreshFiles();
         } catch (err: any) {
             console.error("Migration failed:", err);
@@ -705,22 +783,45 @@ function MigrationSettings() {
                 </div>
 
                 {sourceApp && status.state === "idle" && (
-                    <div className="pt-2">
-                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-border/40 hover:border-primary/50 hover:bg-primary/5 rounded-xl p-8 cursor-pointer transition-all duration-300">
+                    <div className="pt-2 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={handlePickNativeFolder}
+                                className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all cursor-pointer text-center group"
+                            >
+                                <Folder size={28} className="text-primary mb-2 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs font-semibold text-text">Select Vault Folder</span>
+                                <span className="text-[10px] text-text-muted/70 mt-1">Select the entire directory of your vault</span>
+                            </button>
+
+                            <button
+                                onClick={handlePickNativeFiles}
+                                className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border/40 bg-surface/20 hover:bg-surface-hover hover:border-border transition-all cursor-pointer text-center group"
+                            >
+                                <FileText size={28} className="text-text-muted mb-2 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs font-semibold text-text">Select Note Files</span>
+                                <span className="text-[10px] text-text-muted/70 mt-1">Choose specific .md files to import</span>
+                            </button>
+                        </div>
+
+                        <div className="text-center pt-2">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-[10px] text-text-muted/60 hover:text-text underline cursor-pointer"
+                            >
+                                Or select via standard file browser
+                            </button>
                             <input
+                                ref={fileInputRef}
                                 type="file"
                                 // @ts-ignore
                                 webkitdirectory=""
                                 directory=""
+                                multiple
                                 className="hidden"
                                 onChange={handleFolderUpload}
                             />
-                            <div className="text-center">
-                                <Import size={24} className="text-primary mx-auto mb-2" />
-                                <span className="text-xs font-semibold text-text">Choose Folder to Migrate</span>
-                                <p className="text-[10px] text-text-muted/60 mt-1">Select the root directory of your vault or export</p>
-                            </div>
-                        </label>
+                        </div>
                     </div>
                 )}
 
