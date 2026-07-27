@@ -19,7 +19,7 @@ import { getFileIconForName } from "./FileIcons";
 import { useStore, FileNode, findFileNode } from "../store/useStore";
 import { useThemeStore } from "../store/useThemeStore";
 import { useSettingsStore } from "../store/useSettingsStore";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { platform } from "@tauri-apps/plugin-os";
@@ -87,6 +87,7 @@ export default function Sidebar() {
     const folderInputRef = useRef<HTMLInputElement>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const renameInputRef = useRef<HTMLInputElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const internalDropHandledRef = useRef(false);
 
     const [contextMenu, setContextMenu] = useState<{
@@ -131,6 +132,17 @@ export default function Sidebar() {
             window.addEventListener("click", handleClickOutside);
         }
         return () => window.removeEventListener("click", handleClickOutside);
+    }, [contextMenu]);
+
+    // Adjust context menu position to prevent it from going offscreen
+    useLayoutEffect(() => {
+        if (contextMenu && menuRef.current) {
+            const rect = menuRef.current.getBoundingClientRect();
+            const x = Math.max(8, Math.min(contextMenu.x, window.innerWidth - rect.width - 8));
+            const y = Math.max(8, Math.min(contextMenu.y, window.innerHeight - rect.height - 8));
+            menuRef.current.style.left = `${x}px`;
+            menuRef.current.style.top = `${y}px`;
+        }
     }, [contextMenu]);
 
     // Debounced search
@@ -996,8 +1008,9 @@ export default function Sidebar() {
             {/* Custom Context Menu */}
             {contextMenu && (
                 <div
+                    ref={menuRef}
                     className="fixed z-[300] bg-surface border-2 border-border rounded-xl shadow-2xl py-1.5 w-48 animate-in backdrop-blur-md bg-surface/95"
-                    style={{ left: Math.min(contextMenu.x, window.innerWidth - 200), top: Math.min(contextMenu.y, window.innerHeight - 200) }}
+                    style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <button
