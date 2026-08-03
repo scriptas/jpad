@@ -63,6 +63,26 @@ jobs:
           tagName: v__VERSION__ # the action will replace this with the version from tauri.conf.json
           releaseName: "JPad v__VERSION__"
           releaseBody: "See the assets below to download JPad."
-          releaseDraft: false
+          # Keep the release as a draft until every platform in the matrix has
+          # uploaded its asset. Publishing immediately per-platform makes the
+          # release visible via the GitHub API (and thus to JPad's in-app
+          # updater) before all assets exist, so the updater can pick a
+          # release that's missing the current platform's installer.
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish-release:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: get version
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v${{ steps.version.outputs.VERSION }}" --draft=false --repo "${{ github.repository }}"

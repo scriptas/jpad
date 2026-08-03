@@ -818,6 +818,27 @@ async fn download_and_install_update(
     Ok(format!("Downloaded to: {}", dest_str))
 }
 
+#[cfg(target_os = "macos")]
+fn style_macos_window(window: &tauri::WebviewWindow) {
+    let ns_window = window.ns_window().unwrap() as cocoa::base::id;
+    unsafe {
+        use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSWindowTitleVisibility, NSWindowStyleMask};
+
+        // Set the title bar transparency and visibility
+        ns_window.setTitleVisibility_(NSWindowTitleVisibility::NSWindowTitleHidden);
+        ns_window.setTitlebarAppearsTransparent_(cocoa::base::YES);
+
+        // Force the content view to fill the whole window.
+        // We use a specific combination of flags that work best with Overlay.
+        let mut style_mask = ns_window.styleMask();
+        style_mask.insert(NSWindowStyleMask::NSFullSizeContentViewWindowMask);
+        ns_window.setStyleMask_(style_mask);
+
+        // Set collection behavior to support native fullscreen properly.
+        let _: () = msg_send![ns_window, setCollectionBehavior: NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenPrimary];
+    }
+}
+
 #[tauri::command]
 async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(), String> {
     #[cfg(not(mobile))]
@@ -828,7 +849,7 @@ async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(),
             .unwrap()
             .as_millis();
         let label = format!("window-{}", timestamp);
-        
+
         // Simple URL encoding for the path
         let encoded_path = _path.replace('%', "%25")
             .replace(' ', "%20")
@@ -836,16 +857,33 @@ async fn open_in_new_window(_app: tauri::AppHandle, _path: String) -> Result<(),
             .replace('#', "%23")
             .replace('&', "%26")
             .replace('=', "%3D");
-        
+
         let url = format!("index.html?file={}&sidebar=false", encoded_path);
-        
-        tauri::WebviewWindowBuilder::new(&_app, label, tauri::WebviewUrl::App(url.into()))
+
+        let builder = tauri::WebviewWindowBuilder::new(&_app, label, tauri::WebviewUrl::App(url.into()))
             .title(format!("JPad - {}", _path))
             .inner_size(1000.0, 700.0)
-            .decorations(false)
-            .transparent(true)
-            .build()
-            .map_err(|e: tauri::Error| e.to_string())?;
+            .transparent(true);
+
+        // On macOS, decorations must stay enabled (with an overlay title bar) so the
+        // native traffic-light buttons (close/minimize/zoom) are present, matching the
+        // main window. Disabling decorations here previously left new windows with no
+        // way to be closed. Windows/Linux keep the frameless custom look.
+        #[cfg(target_os = "macos")]
+        let builder = builder
+            .decorations(true)
+            .title_bar_style(tauri::TitleBarStyle::Overlay);
+        #[cfg(not(target_os = "macos"))]
+        let builder = builder.decorations(false);
+
+        let window = builder.build().map_err(|e: tauri::Error| e.to_string())?;
+
+        #[cfg(target_os = "macos")]
+        {
+            let _ = window.set_title("");
+            style_macos_window(&window);
+        }
+
         Ok(())
     }
     #[cfg(mobile)]
@@ -888,24 +926,7 @@ pub fn run() {
                 {
                     // Ensure the title is empty so no ghost labels (like "Commit") appear.
                     let _ = window.set_title("");
-                    
-                    let ns_window = window.ns_window().unwrap() as cocoa::base::id;
-                    unsafe {
-                        use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSWindowTitleVisibility, NSWindowStyleMask};
-                        
-                        // Set the title bar transparency and visibility
-                        ns_window.setTitleVisibility_(NSWindowTitleVisibility::NSWindowTitleHidden);
-                        ns_window.setTitlebarAppearsTransparent_(cocoa::base::YES);
-
-                        // Force the content view to fill the whole window.
-                        // We use a specific combination of flags that work best with Overlay.
-                        let mut style_mask = ns_window.styleMask();
-                        style_mask.insert(NSWindowStyleMask::NSFullSizeContentViewWindowMask);
-                        ns_window.setStyleMask_(style_mask);
-
-                        // Set collection behavior to support native fullscreen properly.
-                        let _: () = msg_send![ns_window, setCollectionBehavior: NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenPrimary];
-                    }
+                    style_macos_window(&window);
                 }
 
                 #[cfg(any(target_os = "windows", target_os = "linux"))]

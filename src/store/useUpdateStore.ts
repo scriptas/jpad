@@ -52,8 +52,15 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
                 console.warn('Failed to get dynamic version from Tauri:', e);
             }
 
+            // A release can briefly exist on GitHub without this platform's asset yet
+            // (matrix builds upload independently). Don't surface an update the user
+            // can't actually install - it just shows a dead button until the next check.
+            const hasCompatibleAsset = result.hasUpdate && result.release
+                ? getAssetForPlatform(result.release.assets, platform() === 'macos' ? 'macos' : platform() === 'windows' ? 'windows' : 'linux') !== null
+                : false;
+
             set({
-                hasUpdate: result.hasUpdate,
+                hasUpdate: result.hasUpdate && hasCompatibleAsset,
                 latestRelease: result.release,
                 currentVersion,
                 lastChecked: new Date().toISOString(),
