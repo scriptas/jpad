@@ -516,7 +516,7 @@ function UpdateSection() {
                     <div className="flex items-center gap-3 mt-4">
                         <button
                             onClick={downloadAndInstall}
-                            disabled={downloading || !asset}
+                            disabled={downloading}
                             className={cn(
                                 "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all",
                                 downloading
