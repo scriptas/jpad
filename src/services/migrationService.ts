@@ -50,14 +50,9 @@ export async function migrateFolderFromPath(
             currentFile: filename
         });
 
-        // Read Markdown content
+        // Read Markdown content and embed any local images as base64 data URIs
         const markdown = await invoke<string>("read_file", { path: mdPath });
-
-        // Parse Markdown to basic HTML
-        let html = parseMarkdown(markdown);
-
-        // Resolve images
-        html = await resolveAndEmbedImages(html, assetMap);
+        const content = await resolveAndEmbedImages(markdown, assetMap);
 
         // Compute relative path relative to folderPath
         const normalizedMd = mdPath.replace(/\\/g, "/");
@@ -68,17 +63,17 @@ export async function migrateFolderFromPath(
             relativePath = filename;
         }
 
-        // Replace .md / .markdown with .jt
-        relativePath = relativePath.replace(/\.(md|markdown)$/i, ".jt");
+        // Normalize .markdown to .md for a consistent vault
+        relativePath = relativePath.replace(/\.markdown$/i, ".md");
 
-        if (!relativePath || relativePath === ".jt") {
-            relativePath = filename.replace(/\.(md|markdown)$/i, ".jt");
+        if (!relativePath || relativePath === ".md") {
+            relativePath = filename.replace(/\.markdown$/i, ".md");
         }
 
         const destinationPath = `${notesRoot.replace(/\/+$/, "")}/${relativePath}`;
 
-        // Write to JPad's notes directory
-        await invoke("write_file", { path: destinationPath, content: html });
+        // Write to JPad's notes directory as real Markdown
+        await invoke("write_file", { path: destinationPath, content });
     }
 }
 
@@ -107,13 +102,12 @@ export async function migrateFilePaths(
         });
 
         const markdown = await invoke<string>("read_file", { path: mdPath });
-        let html = parseMarkdown(markdown);
-        html = await resolveAndEmbedImages(html, assetMap);
+        const content = await resolveAndEmbedImages(markdown, assetMap);
 
-        const relativePath = filename.replace(/\.(md|markdown)$/i, ".jt");
+        const relativePath = filename.replace(/\.markdown$/i, ".md");
         const destinationPath = `${notesRoot.replace(/\/+$/, "")}/${relativePath}`;
 
-        await invoke("write_file", { path: destinationPath, content: html });
+        await invoke("write_file", { path: destinationPath, content });
     }
 }
 
@@ -155,13 +149,10 @@ export async function migrateFolder(
         // 1. Read Markdown content
         const markdown = await file.text();
 
-        // 2. Parse Markdown to basic HTML
-        let html = parseMarkdown(markdown);
+        // 2. Resolve images (Wiki links `![[image.png]]` & standard `![alt](image.png)`)
+        const content = await resolveAndEmbedImages(markdown, assetMap);
 
-        // 3. Resolve images (Wiki links `![[image.png]]` & standard `![alt](image.png)`)
-        html = await resolveAndEmbedImages(html, assetMap);
-
-        // 4. Determine JPad destination path cleanly
+        // 3. Determine JPad destination path cleanly
         let relativePath = "";
         if (file.webkitRelativePath) {
             const parts = file.webkitRelativePath.split("/");
@@ -177,107 +168,21 @@ export async function migrateFolder(
             relativePath = file.name;
         }
 
-        relativePath = relativePath.replace(/\.(md|markdown)$/i, ".jt");
-        if (!relativePath || relativePath === ".jt") {
-            relativePath = file.name.replace(/\.(md|markdown)$/i, ".jt");
+        relativePath = relativePath.replace(/\.markdown$/i, ".md");
+        if (!relativePath || relativePath === ".md") {
+            relativePath = file.name.replace(/\.markdown$/i, ".md");
         }
 
         const destinationPath = `${notesRoot.replace(/\/+$/, "")}/${relativePath}`;
 
-        // 5. Write to JPad's notes directory
-        await invoke("write_file", { path: destinationPath, content: html });
+        // 4. Write to JPad's notes directory
+        await invoke("write_file", { path: destinationPath, content });
     }
 }
 
-/** Converts markdown elements to HTML elements compatible with TipTap */
-function parseMarkdown(markdown: string): string {
-    let html = markdown
-        .replace(/\r\n/g, "\n")
-        // Escaping raw HTML characters that could conflict with parser tags
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-
-    // 1. Extract code blocks and replace with safe alphanumeric placeholder
-    const codeBlocks: string[] = [];
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        const placeholder = `JPADCODEBLOCK${codeBlocks.length}`;
-        codeBlocks.push(`<pre><code class="language-${lang}">${code}</code></pre>`);
-        return placeholder;
-    });
-
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-
-    // Headings (ordered H3 to H1 to avoid overlapping matching)
-    html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-    html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-    html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
-
-    // Bold / Italic
-    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-    html = html.replace(/_([^_]+)_/g, "<em>$1</em>");
-
-    // Blockquotes (matching escaped character &gt;)
-    html = html.replace(/^&gt; (.*$)/gim, "<blockquote>$1</blockquote>");
-
-    // List rendering logic
-    const lines = html.split("\n");
-    let inList = false;
-    let inOrderedList = false;
-    const processedLines = lines.map(line => {
-        const ulMatch = line.match(/^[\*\-\+] (.*$)/);
-        const olMatch = line.match(/^\d+\. (.*$)/);
-
-        if (ulMatch) {
-            let res = "";
-            if (inOrderedList) { res += "</ol>\n"; inOrderedList = false; }
-            if (!inList) { res += "<ul>\n"; inList = true; }
-            res += `<li>${ulMatch[1]}</li>`;
-            return res;
-        } else if (olMatch) {
-            let res = "";
-            if (inList) { res += "</ul>\n"; inList = false; }
-            if (!inOrderedList) { res += "<ol>\n"; inOrderedList = true; }
-            res += `<li>${olMatch[1]}</li>`;
-            return res;
-        } else {
-            let res = "";
-            if (inList) { res += "</ul>\n"; inList = false; }
-            if (inOrderedList) { res += "</ol>\n"; inOrderedList = false; }
-
-            const trimmed = line.trim();
-            if (trimmed &&
-                !trimmed.startsWith("<h") &&
-                !trimmed.startsWith("<pre") &&
-                !trimmed.startsWith("</pre") &&
-                !trimmed.startsWith("<code") &&
-                !trimmed.startsWith("</code") &&
-                !trimmed.startsWith("<blockquote") &&
-                !trimmed.startsWith("JPADCODEBLOCK")) {
-                return res + `<p>${line}</p>`;
-            }
-            return res + line;
-        }
-    });
-
-    if (inList) processedLines.push("</ul>");
-    if (inOrderedList) processedLines.push("</ol>");
-
-    html = processedLines.join("\n");
-
-    // 2. Restore code blocks
-    codeBlocks.forEach((block, idx) => {
-        html = html.replace(`JPADCODEBLOCK${idx}`, block);
-    });
-
-    return html;
-}
-
-/** Scans HTML content, reads matching local image blobs/paths, and replaces src with Base64 strings */
+/** Scans Markdown text, reads matching local image blobs/paths, and replaces image sources with Base64 data URIs */
 async function resolveAndEmbedImages(
-    html: string,
+    markdown: string,
     assetMap: Map<string, File | string>
 ): Promise<string> {
     const fetchBase64 = async (asset: File | string): Promise<string> => {
@@ -298,12 +203,13 @@ async function resolveAndEmbedImages(
         }
     };
 
+    let content = markdown;
+
     // 1. Process wiki-style images: ![[my-image.png]] or ![[my-image.png|100]]
     const wikiRegex = /!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
     let match;
-    let newHtml = html;
 
-    while ((match = wikiRegex.exec(html)) !== null) {
+    while ((match = wikiRegex.exec(markdown)) !== null) {
         const fullMatch = match[0];
         const parts = match[1].split("|");
         const filename = decodeURIComponent(parts[0].trim());
@@ -311,26 +217,20 @@ async function resolveAndEmbedImages(
         const asset = assetMap.get(filename.toLowerCase());
         if (asset) {
             const base64 = await fetchBase64(asset);
-            if (base64) {
-                newHtml = newHtml.replace(fullMatch, `<img src="${base64}" class="jpad-image image-medium" />`);
-            } else {
-                newHtml = newHtml.replace(fullMatch, `[Image Missing: ${filename}]`);
-            }
+            content = content.replace(fullMatch, base64 ? `![${filename}](${base64})` : `[Image Missing: ${filename}]`);
         } else {
-            newHtml = newHtml.replace(fullMatch, `[Image Missing: ${filename}]`);
+            content = content.replace(fullMatch, `[Image Missing: ${filename}]`);
         }
     }
 
-    html = newHtml;
-
-    // 2. Process markdown-style images: ![alt](path/to/my-image.png)
+    // 2. Process standard markdown images: ![alt](path/to/my-image.png)
     const mdRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-    while ((match = mdRegex.exec(html)) !== null) {
+    while ((match = mdRegex.exec(markdown)) !== null) {
         const fullMatch = match[0];
         const altText = match[1];
         const imagePath = match[2];
 
-        // Skip web URLs
+        // Skip web URLs and already-embedded data URIs
         if (imagePath.startsWith("http://") || imagePath.startsWith("https://") || imagePath.startsWith("data:")) {
             continue;
         }
@@ -339,15 +239,11 @@ async function resolveAndEmbedImages(
         const asset = assetMap.get(filename.toLowerCase());
         if (asset) {
             const base64 = await fetchBase64(asset);
-            if (base64) {
-                newHtml = newHtml.replace(fullMatch, `<img src="${base64}" class="jpad-image image-medium" alt="${altText}" />`);
-            } else {
-                newHtml = newHtml.replace(fullMatch, `[Image Missing: ${filename}]`);
-            }
+            content = content.replace(fullMatch, base64 ? `![${altText}](${base64})` : `[Image Missing: ${filename}]`);
         } else {
-            newHtml = newHtml.replace(fullMatch, `[Image Missing: ${filename}]`);
+            content = content.replace(fullMatch, `[Image Missing: ${filename}]`);
         }
     }
 
-    return newHtml;
+    return content;
 }

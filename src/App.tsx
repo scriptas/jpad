@@ -285,7 +285,7 @@ export default function App() {
         const { fileNamePrefix } = useSettingsStore.getState();
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
+        const defaultName = `${fileNamePrefix}-${timestamp}.md`;
 
         let basePath: string | undefined;
         const targetId = lastSelectedId || activeFileId;

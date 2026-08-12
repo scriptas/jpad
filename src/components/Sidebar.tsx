@@ -12,6 +12,7 @@ import {
     MoreVertical,
     ExternalLink,
     Maximize2,
+    RefreshCw,
     X,
 } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
@@ -238,7 +239,7 @@ export default function Sidebar() {
         const { fileNamePrefix } = useSettingsStore.getState();
         const date = new Date();
         const timestamp = `${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const defaultName = `${fileNamePrefix}-${timestamp}.jt`;
+        const defaultName = `${fileNamePrefix}-${timestamp}.md`;
         
         let basePath = parentPath;
         if (!basePath) {
@@ -559,6 +560,41 @@ export default function Sidebar() {
             setContextMenu(null);
         } catch (error) {
             console.error("Failed to open in new window:", error);
+        }
+    };
+
+    /** One-time, user-initiated upgrade of a legacy .jt note (raw HTML) to a real .md file. */
+    const handleConvertToMarkdown = async (node: FileNode) => {
+        setContextMenu(null);
+        try {
+            const html = await invoke<string>("read_file", { path: node.id });
+            const { convertLegacyHtmlToMarkdown } = await import("../utils/legacyMarkdownConvert");
+            const markdown = convertLegacyHtmlToMarkdown(html);
+
+            // Avoid clobbering an existing .md file with the same base name
+            let newPath = node.id.replace(/\.jt$/i, ".md");
+            let suffix = 1;
+            while (true) {
+                try {
+                    await invoke("read_file", { path: newPath });
+                    newPath = node.id.replace(/\.jt$/i, `-${suffix}.md`);
+                    suffix += 1;
+                } catch {
+                    break;
+                }
+            }
+
+            await invoke("write_file", { path: newPath, content: markdown });
+            await invoke("delete_path", { path: node.id });
+
+            useSettingsStore.getState().renamePathColors(node.id, newPath);
+            const { activeFileId: currentActiveId, setActiveFileId: setActive, refreshFiles } = useStore.getState();
+            if (currentActiveId === node.id) {
+                setActive(newPath);
+            }
+            await refreshFiles();
+        } catch (error) {
+            console.error("Failed to convert file to Markdown:", error);
         }
     };
 
@@ -1057,6 +1093,15 @@ export default function Sidebar() {
                         >
                             <Maximize2 size={14} className="text-primary" />
                             Pop in separate window
+                        </button>
+                    )}
+                    {contextMenu.node.type === "file" && /\.jt$/i.test(contextMenu.node.id) && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleConvertToMarkdown(contextMenu.node); }}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-hover text-sm transition-colors text-text"
+                        >
+                            <RefreshCw size={14} className="text-primary" />
+                            Convert to Markdown
                         </button>
                     )}
                     <div className="h-[1px] bg-border my-1.5 mx-2" />

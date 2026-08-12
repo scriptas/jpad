@@ -1,16 +1,10 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
-import Youtube from "@tiptap/extension-youtube";
-import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
-import Color from "@tiptap/extension-color";
-import { TextStyle } from "@tiptap/extension-text-style";
-import Highlight from "@tiptap/extension-highlight";
 import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
 import { closeHistory } from "prosemirror-history";
 import { Extension } from "@tiptap/core";
+import { createContentExtensions } from "../tiptap/contentExtensions";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
@@ -241,7 +235,12 @@ function readFileAsDataURL(file: Blob): Promise<string> {
     });
 }
 
-/** 
+/** New files are real Markdown; existing .jt files stay raw HTML for backward compatibility. */
+function isMarkdownFile(id: string | null): boolean {
+    return !!id && /\.(md|markdown|mdx)$/i.test(id);
+}
+
+/**
  * Scans HTML for blob: URLs and converts them back to base64.
  * This is a safety measure because some browser backends (like Webkit on Linux)
  * can automatically convert large data URLs into temporary blobs in the DOM.
@@ -272,40 +271,6 @@ async function deblobifyContent(html: string): Promise<string> {
 
     return div.innerHTML;
 }
-
-/** Custom Image extension with size and inline support */
-const CustomImage = Image.extend({
-    addOptions() {
-        return {
-            ...(this.parent?.() as any),
-            inline: true,
-            allowBase64: true,
-        };
-    },
-
-    addAttributes() {
-        return {
-            ...this.parent?.(),
-            src: {
-                default: null,
-                parseHTML: element => element.getAttribute('src'),
-                renderHTML: attributes => ({
-                    src: attributes.src,
-                }),
-            },
-            size: {
-                default: "medium",
-                parseHTML: (element) => element.getAttribute("data-size") || "medium",
-                renderHTML: (attributes) => {
-                    return {
-                        "data-size": attributes.size,
-                        class: `jpad-image image-${attributes.size}`,
-                    };
-                },
-            },
-        };
-    },
-});
 
 /**
  * Custom Key handler to override Tab and Alt-Backspace behavior.
@@ -385,25 +350,7 @@ export default function Editor() {
     const editor = useEditor(
         {
             extensions: [
-                StarterKit.configure({
-                    heading: { levels: [1, 2, 3] },
-                    // @ts-ignore
-                    history: {
-                        newGroupDelay: 300,
-                    },
-                }),
-                Underline,
-                TextStyle,
-                Color,
-                Highlight.configure({
-                    multicolor: true,
-                }),
-                CustomImage,
-                Youtube.configure({
-                    HTMLAttributes: {
-                        class: "mx-auto rounded-lg shadow-lg border border-border max-w-full my-4",
-                    },
-                }),
+                ...createContentExtensions({ undoRedo: { newGroupDelay: 300 } }),
                 Placeholder.configure({
                     placeholder: "Start writing your thoughts...",
                     emptyEditorClass: "is-editor-empty",
@@ -545,8 +492,14 @@ export default function Editor() {
                 if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                 saveTimeoutRef.current = setTimeout(async () => {
                     // Safety check: ensure no browser blobs leak into the saved file
-                    const safeContent = await deblobifyContent(content);
-                    saveRef.current(safeContent);
+                    if (content.includes('src="blob:')) {
+                        const safeContent = await deblobifyContent(content);
+                        editor.commands.setContent(safeContent, { emitUpdate: false });
+                    }
+
+                    const targetId = useStore.getState().activeFileId;
+                    const output = isMarkdownFile(targetId) ? editor.getMarkdown() : editor.getHTML();
+                    saveRef.current(output);
                 }, 600);
             },
             onSelectionUpdate: ({ editor }) => {
@@ -670,12 +623,22 @@ export default function Editor() {
     useEffect(() => {
         if (editor && activeFileId) {
             isLoadingRef.current = true;
+            const asMarkdown = isMarkdownFile(activeFileId);
             loadFileContent(activeFileId).then((content) => {
-                editor.chain()
-                    .setContent(content || "", { emitUpdate: false })
-                    .setMeta("addToHistory", false)
-                    .focus()
-                    .run();
+                const trimmed = (content || "").trim();
+                if (asMarkdown && trimmed) {
+                    editor.chain()
+                        .setContent(content, { emitUpdate: false, contentType: "markdown" })
+                        .setMeta("addToHistory", false)
+                        .focus()
+                        .run();
+                } else {
+                    editor.chain()
+                        .setContent(content || "", { emitUpdate: false })
+                        .setMeta("addToHistory", false)
+                        .focus()
+                        .run();
+                }
 
                 // Position cursor at end of document
                 setTimeout(() => {

@@ -288,7 +288,7 @@ function FileNamePrefixSetting() {
             <div className="flex-1">
                 <div className="text-xs font-medium text-text mb-1">Default File Name</div>
                 <div className="text-[10px] text-text-muted/60 leading-tight">
-                    Prefix for new files (e.g., "note-123.jt")
+                    Prefix for new files (e.g., "note-123.md")
                 </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1359,7 +1359,7 @@ export default function Settings() {
                                                                 borderTop: `2px solid ${editColors.primary}`,
                                                             }}
                                                         >
-                                                            document.jt
+                                                            document.md
                                                         </div>
                                                     </div>
                                                     {/* Text lines */}
@@ -1580,7 +1580,7 @@ export default function Settings() {
                                 <div className="mt-4 flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/10">
                                     <ChevronRight size={12} className="text-primary mt-0.5 flex-shrink-0" />
                                     <p className="text-[10px] text-text-muted/60 leading-relaxed">
-                                        <span className="text-text-muted/80 font-medium">Note:</span> New files will be named with this prefix followed by a timestamp (e.g., "note-123.jt")
+                                        <span className="text-text-muted/80 font-medium">Note:</span> New files will be named with this prefix followed by a timestamp (e.g., "note-123.md")
                                     </p>
                                 </div>
                             </div>
