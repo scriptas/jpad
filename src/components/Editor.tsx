@@ -5,6 +5,8 @@ import { DOMSerializer, DOMParser } from "@tiptap/pm/model";
 import { closeHistory } from "prosemirror-history";
 import { Extension } from "@tiptap/core";
 import { createContentExtensions } from "../tiptap/contentExtensions";
+import TablePicker from "./TablePicker";
+import TableControls from "./TableControls";
 import { useStore, findFileNode } from "../store/useStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +38,7 @@ import {
     Tablet,
     Smartphone,
     Maximize,
+    TableIcon,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -341,9 +344,11 @@ export default function Editor() {
 
     const [showTextColor, setShowTextColor] = useState(false);
     const [showHighlight, setShowHighlight] = useState(false);
+    const [showTablePicker, setShowTablePicker] = useState(false);
 
     const textColorBtnRef = useRef<HTMLButtonElement>(null);
     const highlightBtnRef = useRef<HTMLButtonElement>(null);
+    const tableBtnRef = useRef<HTMLButtonElement>(null);
 
     const activeFile = activeFileId ? findFileNode(files, activeFileId) : null;
 
@@ -1017,6 +1022,26 @@ export default function Editor() {
                 <div className="flex-1" />
 
                 <div className="flex items-center gap-0.5">
+                    <button
+                        ref={tableBtnRef}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setShowTablePicker(!showTablePicker)}
+                        title="Insert Table"
+                        className={cn(
+                            "p-1.5 rounded-md transition-all duration-150",
+                            "hover:bg-surface-hover active:scale-95",
+                            showTablePicker && "text-primary bg-surface ring-1 ring-primary/20"
+                        )}
+                    >
+                        <TableIcon size={15} />
+                    </button>
+                    {showTablePicker && (
+                        <TablePicker
+                            editor={editor}
+                            triggerRef={tableBtnRef}
+                            onClose={() => setShowTablePicker(false)}
+                        />
+                    )}
                     <ToolbarButton onClick={addImage} title="Insert Image">
                         <ImageIcon size={15} />
                     </ToolbarButton>
@@ -1034,6 +1059,7 @@ export default function Editor() {
             </div>
 
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto relative min-h-0" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+                <TableControls editor={editor} />
                 {editor && (
                     <BubbleMenu
                         editor={editor}

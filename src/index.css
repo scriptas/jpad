@@ -278,6 +278,146 @@
   padding: 0.05em 0.15em;
 }
 
+/* Tables */
+.jpad-editor table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+}
+
+.jpad-editor td,
+.jpad-editor th {
+  min-width: 75px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.6em;
+}
+
+.jpad-editor td > p,
+.jpad-editor th > p {
+  margin-bottom: 0;
+}
+
+.jpad-editor th {
+  font-weight: 700;
+  text-align: left;
+  background: var(--color-surface);
+}
+
+.jpad-editor .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 20;
+  background-color: var(--color-primary);
+  pointer-events: none;
+}
+
+.jpad-editor.resize-cursor {
+  cursor: col-resize;
+}
+
+.jpad-editor .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: '';
+  inset: 0;
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  pointer-events: none;
+}
+
+/* Table hover controls (add row / add column) */
+.table-add-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 40;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.table-add-line {
+  position: absolute;
+  background: var(--color-primary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  border-radius: 2px;
+}
+
+.table-add-line-v {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.table-add-line-h {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.table-add-strip:hover .table-add-line {
+  opacity: 1;
+}
+
+.table-add-plus {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+  transition: all 120ms ease;
+}
+
+.table-add-strip:hover .table-add-plus {
+  opacity: 1;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-background);
+  transform: scale(1.15);
+}
+
+.table-add-corner {
+  z-index: 41;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.table-add-corner:hover {
+  opacity: 1;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-background);
+  transform: scale(1.2);
+}
+
 /* Placeholder */
 .jpad-editor.is-editor-empty:first-child::before {
   color: var(--color-text-muted);
