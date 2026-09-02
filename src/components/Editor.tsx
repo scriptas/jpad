@@ -238,6 +238,32 @@ function readFileAsDataURL(file: Blob): Promise<string> {
     });
 }
 
+/** Normalizes any CSS color string to the browser's canonical form so raw values (hex, rgb, named) can be compared. */
+function normalizeColor(value: string): string {
+    const probe = document.createElement("span");
+    probe.style.color = value;
+    return probe.style.color;
+}
+
+/**
+ * Removes inline `color` styling that merely matches the active theme's foreground
+ * text color. Dark/light themes are purely a display concern (a CSS variable) - text
+ * should only carry a real color into copied content when the user explicitly picked
+ * one via the text-color tool. Without this, a dark theme's white foreground gets
+ * baked into the clipboard HTML and shows up as invisible white text in other apps.
+ */
+function stripThemeTextColor(root: HTMLElement) {
+    const themeColor = getComputedStyle(document.documentElement).getPropertyValue("--color-text").trim();
+    if (!themeColor) return;
+    const normalizedThemeColor = normalizeColor(themeColor);
+    root.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
+        if (el.style.color && normalizeColor(el.style.color) === normalizedThemeColor) {
+            el.style.removeProperty("color");
+            if (!el.getAttribute("style")) el.removeAttribute("style");
+        }
+    });
+}
+
 /** New files are real Markdown; existing .jt files stay raw HTML for backward compatibility. */
 function isMarkdownFile(id: string | null): boolean {
     return !!id && /\.(md|markdown|mdx)$/i.test(id);
@@ -281,6 +307,27 @@ async function deblobifyContent(html: string): Promise<string> {
 const CustomKeyHandler = Extension.create({
     name: 'customKeyHandler',
     addKeyboardShortcuts() {
+        const deleteWordBackward = () => {
+            const { state } = this.editor;
+            const { from, empty } = state.selection;
+            if (!empty) {
+                this.editor.commands.deleteSelection();
+                return true;
+            }
+            // Fetch text before the cursor (up to 500 characters)
+            const startPos = Math.max(0, from - 500);
+            const text = state.doc.textBetween(startPos, from, "\n");
+            if (!text) return false;
+            const reversed = text.split("").reverse().join("");
+            const match = reversed.match(/^(\s*\w+|\s+|[^\w\s]+)/);
+            if (match) {
+                const deleteLen = match[0].length;
+                this.editor.commands.deleteRange({ from: from - deleteLen, to: from });
+                return true;
+            }
+            return false;
+        };
+
         return {
             Tab: () => {
                 if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
@@ -289,26 +336,11 @@ const CustomKeyHandler = Extension.create({
                 this.editor.commands.insertContent('    ');
                 return true;
             },
-            'Alt-Backspace': () => {
-                const { state } = this.editor;
-                const { from, empty } = state.selection;
-                if (!empty) {
-                    this.editor.commands.deleteSelection();
-                    return true;
-                }
-                // Fetch text before the cursor (up to 500 characters)
-                const startPos = Math.max(0, from - 500);
-                const text = state.doc.textBetween(startPos, from, "\n");
-                if (!text) return false;
-                const reversed = text.split("").reverse().join("");
-                const match = reversed.match(/^(\s*\w+|\s+|[^\w\s]+)/);
-                if (match) {
-                    const deleteLen = match[0].length;
-                    this.editor.commands.deleteRange({ from: from - deleteLen, to: from });
-                    return true;
-                }
-                return false;
-            },
+            // Both bindings use our own single-word regex delete instead of the
+            // browser's native word-delete, which can overshoot into the previous
+            // word when the cursor sits at a mark/node boundary (bold/italic/etc).
+            'Alt-Backspace': deleteWordBackward,
+            'Mod-Backspace': deleteWordBackward,
             Space: () => {
                 setTimeout(() => {
                     this.editor.commands.command(({ tr }) => {
@@ -699,6 +731,7 @@ export default function Editor() {
             const domFragment = domSerializer.serializeFragment(slice.content);
             const tempDiv = document.createElement("div");
             tempDiv.appendChild(domFragment);
+            stripThemeTextColor(tempDiv);
             const html = tempDiv.innerHTML;
 
             // Use the standard synchronous clipboard API (what ALL apps expect)
