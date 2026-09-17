@@ -9,7 +9,53 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { Markdown } from "@tiptap/markdown";
-import { type JSONContent, type MarkdownRendererHelpers } from "@tiptap/core";
+import { Extension, type JSONContent, type MarkdownRendererHelpers } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+
+/** Slugifies heading text the same way GitHub/most Markdown tools do, for `#anchor` links. */
+function slugifyHeading(text: string): string {
+    return text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Tags every heading with a `data-heading-id` slug (e.g. "My Section" -> "my-section"),
+ * so in-document links like `[jump](#my-section)` have something to scroll to.
+ * Duplicate heading text gets `-1`, `-2`, ... suffixes, matching GitHub's convention.
+ */
+export const HeadingAnchors = Extension.create({
+    name: "headingAnchors",
+    addProseMirrorPlugins() {
+        return [
+            new Plugin({
+                key: new PluginKey("headingAnchors"),
+                props: {
+                    decorations(state) {
+                        const seen = new Map<string, number>();
+                        const decorations: Decoration[] = [];
+                        state.doc.descendants((node, pos) => {
+                            if (node.type.name !== "heading") return;
+                            const base = slugifyHeading(node.textContent) || "section";
+                            const count = seen.get(base) ?? 0;
+                            seen.set(base, count + 1);
+                            const id = count === 0 ? base : `${base}-${count}`;
+                            decorations.push(
+                                Decoration.node(pos, pos + node.nodeSize, { "data-heading-id": id })
+                            );
+                        });
+                        return DecorationSet.create(state.doc, decorations);
+                    },
+                },
+            }),
+        ];
+    },
+});
 
 /** Custom Image extension with size and inline support */
 export const CustomImage = Image.extend({
@@ -85,7 +131,13 @@ export const CustomTextStyle = TextStyle.extend({
  * Keeping this in one place ensures both stay in sync.
  */
 export function createContentExtensions(opts?: { undoRedo?: { newGroupDelay: number } }) {
-    const starterKitConfig: Record<string, unknown> = { heading: { levels: [1, 2, 3] } };
+    const starterKitConfig: Record<string, unknown> = {
+        heading: { levels: [1, 2, 3] },
+        // Handle link clicks ourselves (see Editor.tsx) instead of the default
+        // window.open(), which escapes the app into a broken browser tab for
+        // both in-document `#anchor` links and external URLs.
+        link: { openOnClick: false },
+    };
     if (opts?.undoRedo) {
         starterKitConfig.undoRedo = opts.undoRedo;
     }
@@ -93,6 +145,7 @@ export function createContentExtensions(opts?: { undoRedo?: { newGroupDelay: num
     return [
         // Underline is bundled by StarterKit itself as of Tiptap 3.x
         StarterKit.configure(starterKitConfig),
+        HeadingAnchors,
         CustomTextStyle,
         Color,
         Highlight.configure({

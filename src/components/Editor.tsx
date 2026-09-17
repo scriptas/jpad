@@ -491,6 +491,38 @@ export default function Editor() {
 
                     return false;
                 },
+                handleClick: (view, _pos, event) => {
+                    const target = event.target as HTMLElement | null;
+                    const link = target?.closest?.("a");
+                    if (!link) return false;
+
+                    const href = link.getAttribute("href");
+                    if (!href) return false;
+
+                    // In-document anchor (e.g. from a table of contents): scroll to the
+                    // matching heading inside the editor instead of letting the browser
+                    // try to navigate to it and break out of the app.
+                    if (href.startsWith("#")) {
+                        event.preventDefault();
+                        const id = decodeURIComponent(href.slice(1));
+                        if (!id) return true;
+                        const targetEl = view.dom.querySelector(
+                            `[data-heading-id="${CSS.escape(id)}"]`
+                        );
+                        targetEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        return true;
+                    }
+
+                    // External link: open in the system's default browser via Tauri,
+                    // never inside the app's own webview.
+                    if (/^https?:\/\//i.test(href) || href.startsWith("mailto:")) {
+                        event.preventDefault();
+                        import("@tauri-apps/plugin-opener").then((m) => m.openUrl(href));
+                        return true;
+                    }
+
+                    return false;
+                },
                 handleScrollToSelection: (view) => {
                     // On mobile, prevent ProseMirror from using native scrollIntoView
                     // which causes Android WebView to pan the entire viewport.
